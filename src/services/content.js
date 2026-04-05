@@ -457,6 +457,48 @@ function getDurationMinutes(durationMinutes) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
 }
 
+const editorialScenePromptBase = [
+  "You are a visual prompt generator for a YouTube longform geopolitics and history channel.",
+  "",
+  "Your job is to turn a narration script into scene-by-scene AI image prompts in the style of sharp editorial political cartoons.",
+  "",
+  "Goal:",
+  "Create prompts that are concise, visually striking, historically aware, and closely matched to the script.",
+  "",
+  "Rules:",
+  "1. Each prompt must match the meaning, tension, and mood of the corresponding script section.",
+  "2. The image style must be editorial political cartoon / geopolitical newspaper illustration / serious satirical press art.",
+  "3. Reflect the correct historical era, country, region, political figures, clothing, symbols, architecture, weapons, vehicles, and atmosphere.",
+  "4. Keep each prompt concise but strong.",
+  "5. The tone must feel serious, intelligent, dramatic, and suitable for a YouTube longform geopolitics video.",
+  "6. Use visual metaphor only when it strengthens the meaning of the scene.",
+  "7. Avoid childish cartoon style, comedy style, meme style, fantasy style, anime style, or exaggerated comic-book superhero style.",
+  "8. If the scene involves war, diplomacy, nuclear tension, regime change, sanctions, religion, revolution, intelligence activity, or global power struggle, reflect that exact tone visually.",
+  "9. If the narration is abstract or explanatory, create a symbolic editorial cartoon that still feels historically and politically grounded.",
+  "10. Maintain visual consistency across the full set.",
+  "11. Do not explain anything. Output prompts only.",
+  "12. Write in English.",
+  "",
+  "Global visual baseline for every prompt:",
+  "editorial political cartoon, geopolitical illustration, newspaper op-ed art, sharp linework, dramatic composition, serious satirical tone, historically aware imagery, symbolic but grounded, textured shading, muted colors, strong facial expression, clean background separation"
+].join("\n");
+
+function buildEditorialScenePrompt({ topic, paragraph, tone, format, colors, customPrompt }) {
+  return [
+    editorialScenePromptBase,
+    "",
+    `Topic: ${normalizeText(topic) || "Global geopolitics"}`,
+    `Narration section: ${normalizeText(paragraph)}`,
+    `Tone: ${normalizeText(tone) || "serious, intelligent, dramatic"}`,
+    `Frame: ${format === "landscape" ? "16:9 wide composition" : "9:16 vertical composition"}`,
+    `Color palette: ${colors.join(", ")}`,
+    customPrompt ? `Channel direction: ${normalizeText(customPrompt)}` : "",
+    "",
+    "Output:",
+    "One single image prompt in English only."
+  ].filter(Boolean).join("\n");
+}
+
 function buildFallbackParagraphs({ topic, language, research, customPrompt, tone, durationMinutes }) {
   const safeTopic = trimTopicTitle(topic || "", 80) || defaultTopicByLanguage(language);
   const ideas = (research?.ideas ?? []).slice(0, 6);
@@ -594,16 +636,14 @@ export function planScenes({ script, topic, tone, format, styleProfile, customPr
     title: `${safeTopic} ${index + 1}`,
     narration: paragraph,
     durationSec: Math.max(7, Math.round(paragraph.length / 14)),
-    imagePrompt: [
+    imagePrompt: buildEditorialScenePrompt({
       topic,
+      paragraph,
       tone,
-      customPrompt || "",
-      format === "landscape" ? "16:9 composition" : "9:16 composition",
-      `dominant colors ${colors.join(", ")}`,
-      "cinematic lighting",
-      "high detail",
-      "no text"
-    ].filter(Boolean).join(", "),
+      format,
+      colors,
+      customPrompt
+    }),
     transition: index % 2 === 0 ? "fade" : "slide",
     variationSeed: `${safeTopic}-${index + 1}-${Date.now()}`
   }));
