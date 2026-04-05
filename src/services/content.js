@@ -107,6 +107,24 @@ const genericStopWords = new Set([
   "trigger"
 ]);
 
+const historyPriorityKeywords = [
+  "history", "historical", "empire", "dynasty", "colonial", "legacy", "treaty", "border",
+  "war", "civil war", "revolution", "cold war", "regime", "kingdom", "occupation", "annexation",
+  "geopolit", "territory", "alliance", "diplom", "sanction", "proxy", "religion", "ethnic",
+  "역사", "제국", "왕조", "식민", "조약", "국경", "전쟁", "혁명", "냉전", "정권", "점령", "합병", "영토", "외교"
+];
+
+function historyPriorityScore(text) {
+  const lower = normalizeText(text).toLowerCase();
+  if (!lower) {
+    return 0;
+  }
+
+  return historyPriorityKeywords.reduce((score, keyword) => {
+    return score + (lower.includes(keyword.toLowerCase()) ? 3 : 0);
+  }, 0);
+}
+
 export function isInstructionLikeTopic(value) {
   const text = normalizeText(value).toLowerCase();
 
@@ -253,7 +271,7 @@ function pickBestTrend(prompt, trends) {
     const lower = trend.toLowerCase();
     const score = keywords.reduce((total, keyword) => {
       return total + (lower.includes(keyword) ? 1 : 0);
-    }, 0);
+    }, 0) + historyPriorityScore(trend);
 
     if (score > bestScore) {
       bestTrend = trend;
@@ -352,7 +370,7 @@ export async function deriveTopicFromPrompt({
           messages: [
             {
               role: "system",
-              content: "Turn a creator brief into one concise video topic title. Return only the final title with no quotes."
+              content: "Turn a creator brief into one concise video topic title. Prefer geopolitics and history-driven topics with strong historical background and current relevance. Return only the final title with no quotes."
             },
             {
               role: "user",
@@ -416,7 +434,9 @@ export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
     || await deriveTopicFromPrompt({ topicPrompt, language, fallbackTopic: topic });
 
   try {
-    const ideas = (await fetchTrendCandidates(language)).slice(0, 12);
+    const ideas = (await fetchTrendCandidates(language))
+      .sort((left, right) => historyPriorityScore(right) - historyPriorityScore(left))
+      .slice(0, 12);
 
     return {
       source: `google-daily-trends-${normalizeLanguage(language).geo}`,

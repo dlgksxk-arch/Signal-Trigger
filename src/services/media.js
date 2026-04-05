@@ -379,7 +379,11 @@ export async function renderVideo({
 
   const width = format === "landscape" ? 1920 : 1080;
   const height = format === "landscape" ? 1080 : 1920;
-  const filters = [`[0:v]scale=${width}:${height},setsar=1[v0]`];
+  const motionWidth = width + Math.round(width * 0.08);
+  const motionHeight = height + Math.round(height * 0.08);
+  const motionX = `(in_w-out_w)/2+sin(t*0.45)*${Math.round(width * 0.025)}`;
+  const motionY = `(in_h-out_h)/2+cos(t*0.33)*${Math.round(height * 0.02)}`;
+  const filters = [`[0:v]scale=${motionWidth}:${motionHeight},crop=${width}:${height}:${motionX}:${motionY},setsar=1[v0]`];
   let currentVideo = "v0";
 
   if (inputIndices.watermark !== null) {
