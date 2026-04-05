@@ -582,7 +582,9 @@ export async function runProject(projectId, options = {}) {
       imagePath: scenes[0].imagePath,
       title: research.selectedTopic || project.topic,
       outputPath: thumbnailPath,
-      format: project.format
+      format: project.format,
+      scenes,
+      script
     });
 
     const latestOutput = getProject(projectId)?.output ?? {};

@@ -88,14 +88,14 @@ export async function generateNarration({ script, language, outputPath }) {
 
 function pickVoice(language) {
   if (language === "en") {
-    return process.env.DEFAULT_EN_VOICE || "en-US-JennyNeural";
+    return process.env.DEFAULT_EN_VOICE || "en-US-AndrewMultilingualNeural";
   }
 
   if (language === "ja") {
-    return process.env.DEFAULT_JA_VOICE || "ja-JP-NanamiNeural";
+    return process.env.DEFAULT_JA_VOICE || "ja-JP-KeitaNeural";
   }
 
-  return process.env.DEFAULT_KO_VOICE || "ko-KR-SunHiNeural";
+  return process.env.DEFAULT_KO_VOICE || "ko-KR-InJoonNeural";
 }
 
 export function generateSrt({ scenes, outputPath }) {
@@ -121,6 +121,86 @@ function estimateDuration(text) {
   return Math.max(6, Math.round((wordCount || Math.ceil(text.length / 6)) / 2.4));
 }
 
+function normalizeCopy(text) {
+  return String(text ?? "")
+    .replace(/\r?\n/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^Point\s+\d+\.\s*/i, "")
+    .replace(/^[0-9]+\.\s*/, "")
+    .replace(/^(First|Second|Third|Finally|Meanwhile|So)\s*,\s*/i, "")
+    .replace(/^["'\s]+|["'\s]+$/g, "")
+    .trim();
+}
+
+function hookScore(text) {
+  const value = normalizeCopy(text);
+  if (!value) {
+    return -1;
+  }
+
+  const keywords = [
+    "war", "nuclear", "collapse", "secret", "power", "crisis", "invasion", "sanctions",
+    "empire", "showdown", "regime", "trigger", "flashpoint", "conflict", "threat",
+    "전쟁", "핵", "붕괴", "비밀", "충돌", "위기", "패권", "침공", "제재", "정권", "폭발"
+  ];
+
+  let score = 0;
+  if (/[?!]/.test(value)) score += 4;
+  if (/\d/.test(value)) score += 2;
+  if (value.length >= 14 && value.length <= 54) score += 5;
+  if (value.length > 54 && value.length <= 72) score += 2;
+  score += keywords.reduce((total, keyword) => total + (value.toLowerCase().includes(keyword.toLowerCase()) ? 2 : 0), 0);
+  return score;
+}
+
+function pickThumbnailText({ script, scenes, title }) {
+  const sentenceCandidates = [];
+  const sourceText = [script, ...(scenes ?? []).map((scene) => scene.narration)].join(" ");
+  const parts = sourceText
+    .split(/(?<=[.!?。！？])\s+|\n+/)
+    .map((item) => normalizeCopy(item))
+    .filter((item) => item.length >= 10);
+
+  sentenceCandidates.push(...parts);
+  const best = sentenceCandidates
+    .sort((left, right) => hookScore(right) - hookScore(left))[0];
+
+  return best || normalizeCopy(title) || "WHAT CHANGES NEXT?";
+}
+
+function pickThumbnailImage({ imagePath, scenes }) {
+  const scene = (scenes ?? [])
+    .filter((item) => item.imagePath && fs.existsSync(item.imagePath))
+    .sort((left, right) => hookScore(right.narration) - hookScore(left.narration))[0];
+
+  return scene?.imagePath || imagePath;
+}
+
+function wrapThumbnailText(text, format) {
+  const source = normalizeCopy(text);
+  const maxChars = format === "landscape" ? 16 : 12;
+  const maxLines = 3;
+  const words = source.includes(" ") ? source.split(/\s+/) : source.split("");
+  const lines = [];
+  let current = "";
+
+  words.forEach((word) => {
+    const next = current ? `${current}${source.includes(" ") ? " " : ""}${word}` : word;
+    if (next.length > maxChars && current) {
+      lines.push(current);
+      current = word;
+      return;
+    }
+    current = next;
+  });
+
+  if (current) {
+    lines.push(current);
+  }
+
+  return lines.slice(0, maxLines).map((line) => line.toUpperCase());
+}
+
 function secondsToSrt(seconds) {
   const totalMs = Math.round(seconds * 1000);
   const hours = Math.floor(totalMs / 3_600_000).toString().padStart(2, "0");
@@ -130,18 +210,40 @@ function secondsToSrt(seconds) {
   return `${hours}:${minutes}:${secs},${ms}`;
 }
 
-export async function buildThumbnail({ imagePath, title, outputPath, format }) {
+export async function buildThumbnail({ imagePath, title, outputPath, format, scenes = [], script = "" }) {
   ensureDir(path.dirname(outputPath));
   const width = format === "landscape" ? 1280 : 1080;
   const height = format === "landscape" ? 720 : 1920;
+  const selectedImagePath = pickThumbnailImage({ imagePath, scenes });
+  const hookText = pickThumbnailText({ script, scenes, title });
+  const lines = wrapThumbnailText(hookText, format);
+  const baseX = format === "landscape" ? 52 : 46;
+  const baseY = format === "landscape" ? Math.round(height * 0.66) : Math.round(height * 0.7);
+  const lineHeight = format === "landscape" ? 92 : 86;
+  const fontSize = format === "landscape" ? 74 : 68;
+  const fills = ["#ffffff", "#60a5fa", "#facc15"];
+  const textSvg = lines.map((line, index) => {
+    const y = baseY + (index * lineHeight);
+    const fill = fills[index] || "#ffffff";
+    return `<text x="${baseX}" y="${y}" font-size="${fontSize}" fill="${fill}" stroke="#101114" stroke-width="18" paint-order="stroke" font-family="Arial" font-weight="900">${escapeXml(line)}</text>`;
+  }).join("");
+
   const overlay = Buffer.from(`
     <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="${Math.round(height * 0.65)}" width="${width}" height="${Math.round(height * 0.35)}" fill="rgba(0,0,0,0.55)" />
-      <text x="56" y="${Math.round(height * 0.78)}" font-size="${format === "landscape" ? 64 : 60}" fill="#ffffff" font-family="Arial" font-weight="700">${escapeXml(title)}</text>
+      <defs>
+        <linearGradient id="shade" x1="0%" y1="100%" x2="0%" y2="0%">
+          <stop offset="0%" stop-color="rgba(0,0,0,0.84)" />
+          <stop offset="55%" stop-color="rgba(0,0,0,0.36)" />
+          <stop offset="100%" stop-color="rgba(0,0,0,0.04)" />
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="${width}" height="${height}" fill="url(#shade)" />
+      <rect x="${baseX - 18}" y="${baseY - fontSize}" width="${format === "landscape" ? width * 0.62 : width * 0.78}" height="${lineHeight * Math.max(lines.length, 1) + 36}" rx="28" fill="rgba(0,0,0,0.28)" />
+      ${textSvg}
     </svg>
   `);
 
-  await sharp(imagePath)
+  await sharp(selectedImagePath)
     .resize(width, height, { fit: "cover" })
     .composite([{ input: overlay }])
     .jpeg({ quality: 90 })

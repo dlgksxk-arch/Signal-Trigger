@@ -457,6 +457,14 @@ function getDurationMinutes(durationMinutes) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
 }
 
+function cleanupGeneratedScript(script) {
+  return String(script ?? "")
+    .replace(/^\s*(intro|introduction|hook|body|main body|conclusion|closing|outro)\s*[:\-]\s*/gim, "")
+    .replace(/^\s*(인트로|도입|본론|결론|마무리|아웃트로)\s*[:\-]\s*/gim, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 const editorialScenePromptBase = [
   "You are a visual prompt generator for a YouTube longform geopolitics and history channel.",
   "",
@@ -507,7 +515,7 @@ function buildFallbackParagraphs({ topic, language, research, customPrompt, tone
 
   if (language === "en") {
     const paragraphs = [
-      `This video breaks down ${safeTopic} across a full ${minutes}-minute runtime with a clear setup, body, and payoff.`,
+      `This video breaks down ${safeTopic} across a full ${minutes}-minute runtime as one continuous narration.`,
       `We connect ${safeTopic} to live audience signals such as ${ideas.join(", ") || "recent viewer questions"} so the video feels timely instead of generic.`
     ];
 
@@ -518,7 +526,7 @@ function buildFallbackParagraphs({ topic, language, research, customPrompt, tone
       );
     }
 
-    paragraphs.push("Close by summarizing the one thing to understand now, the next thing to watch, and the question viewers should keep asking.");
+    paragraphs.push("End by landing on the one thing viewers need to understand now, the next thing to watch, and the question that should stay in their minds.");
 
     if (customPrompt) {
       paragraphs.push(`Additional direction: ${customPrompt}`);
@@ -549,14 +557,14 @@ function buildFallbackParagraphs({ topic, language, research, customPrompt, tone
 }
 
 function fallbackScript({ topic, tone, language, research, customPrompt, durationMinutes }) {
-  return buildFallbackParagraphs({
+  return cleanupGeneratedScript(buildFallbackParagraphs({
     topic,
     tone,
     language,
     research,
     customPrompt,
     durationMinutes
-  }).join("\n\n");
+  }).join("\n\n"));
 }
 
 export async function generateScript({ topic, tone, language, research, customPrompt, durationMinutes }) {
@@ -580,10 +588,11 @@ export async function generateScript({ topic, tone, language, research, customPr
     "",
     "Requirements:",
     "- Write a YouTube longform narration script",
-    "- Keep a clear hook, body, and closing",
+    "- Keep it as one continuous narration flow",
     `- Match roughly ${minutes} minutes of spoken runtime`,
     "- Use paragraph breaks",
-    "- Make it specific and concrete"
+    "- Make it specific and concrete",
+    "- Do not label sections such as Intro, Body, Conclusion, 인트로, 본론, 결론"
   ].join("\n");
 
   try {
@@ -614,7 +623,7 @@ export async function generateScript({ topic, tone, language, research, customPr
     }
 
     const data = await response.json();
-    return data.choices?.[0]?.message?.content?.trim()
+    return cleanupGeneratedScript(data.choices?.[0]?.message?.content?.trim())
       || fallbackScript({ topic: resolvedTopic, tone, language, research, customPrompt, durationMinutes: minutes });
   } catch {
     return fallbackScript({ topic: resolvedTopic, tone, language, research, customPrompt, durationMinutes: minutes });
