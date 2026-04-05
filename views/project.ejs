@@ -62,7 +62,7 @@
             <a class="back-link" href="/workspace/projects">프로젝트 보관함으로</a>
             <p class="section-tag">Project Editor</p>
             <h1><%= (project.topic || '').split(/\r?\n/)[0] %></h1>
-            <p class="lead-text">좌측에서 작업 단계를 고르고, 중앙에서 해당 단계만 집중해서 편집합니다. 현재 목표 영상 길이는 약 <%= project.settings?.durationMinutes || 10 %>분입니다.</p>
+            <p class="lead-text">왼쪽에서 작업 단계를 고르고, 가운데에서 해당 단계만 집중 편집합니다. 현재 목표 영상 길이는 약 <%= project.settings?.durationMinutes || 10 %>분입니다.</p>
           </div>
           <div class="editor-summary">
             <div class="metric-card primary-metric">
@@ -90,18 +90,18 @@
                 <div>
                   <p class="section-tag">Step 1</p>
                   <h2>주제 설정</h2>
-                  <p class="card-copy">이 단계에서는 짧은 제목 대신 주제 프롬프트를 입력합니다.</p>
+                  <p class="card-copy">주제 프롬프트를 저장하면 아래 도출된 주제가 실제 프로젝트 주제로 사용됩니다.</p>
                 </div>
-                <span class="status-chip">기본 입력</span>
+                <span class="status-chip">프롬프트 입력</span>
               </div>
 
               <form class="form-grid studio-form" action="/projects/<%= project.id %>/settings" method="post">
                 <label class="wide">주제 프롬프트
                   <textarea
-                    name="topic"
+                    name="topicPrompt"
                     class="prompt-textarea"
-                    placeholder="예: BBC 헤드라인 스타일로 오늘 가장 중요한 국제 이슈 3개를 정리하고, 각 이슈의 배경과 앞으로의 영향을 쉽게 설명해 주세요."
-                  ><%= project.topic %></textarea>
+                    placeholder="예: 오늘 가장 주목해야 할 반도체 시장 이슈를 3개로 정리하고, 각 이슈가 업계와 투자자에게 주는 영향을 설명해 주세요."
+                  ><%= topicPromptText %></textarea>
                 </label>
 
                 <label>언어
@@ -152,6 +152,19 @@
                   <button type="submit">주제 설정 저장</button>
                 </div>
               </form>
+
+              <section class="saved-preview-card">
+                <div class="panel-header preview-header">
+                  <div>
+                    <p class="section-tag">Resolved Topic</p>
+                    <h3>도출된 주제</h3>
+                  </div>
+                </div>
+                <div class="soft-card">
+                  <h3><%= project.topic || '아직 도출된 주제가 없습니다.' %></h3>
+                  <p>리서치와 대본 생성은 이 도출된 주제를 기준으로 진행됩니다.</p>
+                </div>
+              </section>
             </article>
 
             <article class="panel-card workflow-panel <%= activeStep === 'research' ? 'active' : '' %>" data-step-panel="research">
@@ -159,7 +172,7 @@
                 <div>
                   <p class="section-tag">Step 2</p>
                   <h2>소재 발굴</h2>
-                  <p class="card-copy">자동 수집 결과를 수정한 뒤 저장하면 바로 아래에 저장된 내용이 표시됩니다.</p>
+                  <p class="card-copy">자동 수집을 누르면 도출된 주제 기준으로 리서치를 불러오고, 저장하면 바로 아래에 반영됩니다.</p>
                 </div>
                 <form action="/projects/<%= project.id %>/research/auto" method="post">
                   <button type="submit">자동 수집</button>
@@ -193,6 +206,10 @@
                 <% if (project.research) { %>
                   <div class="saved-preview-grid">
                     <div class="soft-card">
+                      <h3>도출된 주제</h3>
+                      <p><%= project.research.selectedTopic || project.topic %></p>
+                    </div>
+                    <div class="soft-card">
                       <h3>저장 요약</h3>
                       <p><%= project.research.summary || '저장된 요약이 없습니다.' %></p>
                     </div>
@@ -208,7 +225,7 @@
                         <p>저장된 아이디어가 없습니다.</p>
                       <% } %>
                     </div>
-                    <div class="soft-card wide-card">
+                    <div class="soft-card">
                       <h3>수동 메모</h3>
                       <p><%= project.research.manualNotes || '저장된 메모가 없습니다.' %></p>
                     </div>
@@ -216,7 +233,7 @@
                 <% } else { %>
                   <div class="empty-card">
                     <strong>아직 저장된 리서치가 없습니다.</strong>
-                    <p>자동 수집 또는 리서치 저장을 먼저 실행하십시오.</p>
+                    <p>자동 수집 또는 리서치 저장을 먼저 실행해 주세요.</p>
                   </div>
                 <% } %>
               </section>
@@ -227,7 +244,7 @@
                 <div>
                   <p class="section-tag">Step 3</p>
                   <h2>대본 작성</h2>
-                  <p class="card-copy">현재 설정된 영상 길이 기준으로 약 <%= project.settings?.durationMinutes || 10 %>분 분량 대본을 만듭니다.</p>
+                  <p class="card-copy">현재 설정된 영상 길이 기준으로 약 <%= project.settings?.durationMinutes || 10 %>분 분량 대본을 생성합니다.</p>
                 </div>
                 <div class="form-actions">
                   <form action="/projects/<%= project.id %>/bootstrap" method="post">
@@ -240,8 +257,8 @@
               </div>
 
               <div class="info-row">
+                <span class="status-chip">도출된 주제 <%= project.topic %></span>
                 <span class="status-chip">목표 길이 <%= project.settings?.durationMinutes || 10 %>분</span>
-                <span class="status-chip">기본값은 10분</span>
               </div>
 
               <form class="form-grid studio-form" action="/projects/<%= project.id %>/script/manual" method="post">
@@ -270,7 +287,7 @@
                 <% if (!project.scenes.length) { %>
                   <div class="empty-card">
                     <strong>아직 장면이 없습니다.</strong>
-                    <p>렌더 실행 후 장면 카드가 여기에 생성됩니다.</p>
+                    <p>렌더 실행 또는 장면 생성을 먼저 진행해 주세요.</p>
                   </div>
                 <% } %>
                 <% project.scenes.forEach((scene, index) => { %>
@@ -305,7 +322,7 @@
                 <% if (project.output?.videoPath) { %>
                   <a class="action-card" href="<%= project.output.videoPath.replace(/^.*?storage/, '/storage') %>" target="_blank">
                     <strong>완성 영상 열기</strong>
-                    <p>렌더된 최종 mp4 파일을 바로 엽니다.</p>
+                    <p>렌더된 최종 mp4 파일을 확인합니다.</p>
                   </a>
                 <% } %>
                 <% if (project.output?.thumbnailPath) { %>
@@ -323,7 +340,7 @@
                 <% if (!project.output?.videoPath && !project.output?.thumbnailPath && !project.output?.subtitlesPath) { %>
                   <div class="empty-card">
                     <strong>렌더 결과가 없습니다.</strong>
-                    <p>전체 렌더를 실행한 뒤 다시 확인하십시오.</p>
+                    <p>전체 렌더를 먼저 실행해 주세요.</p>
                   </div>
                 <% } %>
               </div>
@@ -334,7 +351,7 @@
                 <div>
                   <p class="section-tag">Step 6</p>
                   <h2>업로드 및 연동</h2>
-                  <p class="card-copy">외부 연동과 도우미 기능을 마무리합니다.</p>
+                  <p class="card-copy">결과물 패키지와 도움말 기능을 확인합니다.</p>
                 </div>
               </div>
 

@@ -1,9 +1,9 @@
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import express from "express";
 import multer from "multer";
 import { config } from "dotenv";
-import { randomUUID } from "node:crypto";
 import {
   createChannel,
   createProject,
@@ -16,7 +16,13 @@ import {
   uploadsRoot
 } from "./db.js";
 import { askProjectHelp, runProject } from "./pipeline.js";
-import { fetchTrendIdeas, generateScript } from "./services/content.js";
+import {
+  deriveTopicFromPrompt,
+  fetchTrendIdeas,
+  generateScript,
+  isInstructionLikeTopic,
+  isWeakResolvedTopic
+} from "./services/content.js";
 import { getVersionLabel } from "./version.js";
 
 config();
@@ -47,11 +53,13 @@ export function createApp() {
     renderHomePage(res, req.params.section);
   });
 
-  app.get("/projects/:id/:step", (req, res) => {
+  app.get("/projects/:id/:step", async (req, res) => {
+    await hydrateProjectById(req.params.id);
     renderProjectPage(res, req.params.id, req.params.step, undefined, req.query.notice);
   });
 
-  app.get("/projects/:id", (req, res) => {
+  app.get("/projects/:id", async (req, res) => {
+    await hydrateProjectById(req.params.id);
     renderProjectPage(res, req.params.id, req.query.step, undefined, req.query.notice);
   });
 
@@ -74,17 +82,25 @@ export function createApp() {
       { name: "bgmFile", maxCount: 1 },
       { name: "watermarkFile", maxCount: 1 }
     ]),
-    (req, res) => {
+    async (req, res) => {
       const files = req.files;
       const id = randomUUID();
       const now = new Date().toISOString();
       const durationMinutes = parseDurationMinutes(req.body.durationMinutes, 10);
+      const topicPrompt = normalizeTopicPrompt(req.body.topicPrompt || req.body.topic);
+      const language = req.body.language?.trim() || "ko";
+      const tone = req.body.tone?.trim() || "정보형";
+      const resolvedTopic = await resolveTopicFromInput({
+        topicPrompt,
+        language,
+        tone
+      });
 
       createProject({
         id,
-        topic: req.body.topic?.trim() || "주제 프롬프트를 입력해 주세요.",
-        language: req.body.language?.trim() || "ko",
-        tone: req.body.tone?.trim() || "정보형",
+        topic: resolvedTopic,
+        language,
+        tone,
         format: req.body.format?.trim() || "portrait",
         channel_id: req.body.channelId?.trim() || null,
         status: "draft",
@@ -93,6 +109,7 @@ export function createApp() {
         bgm_path: files?.bgmFile?.[0]?.path || null,
         watermark_path: files?.watermarkFile?.[0]?.path || null,
         settings_json: JSON.stringify({
+          topicPrompt,
           customPrompt: req.body.customPrompt?.trim() || "",
           durationMinutes,
           bgmEnabled: Boolean(files?.bgmFile?.[0]?.path),
@@ -112,25 +129,39 @@ export function createApp() {
     }
   );
 
-  app.post("/projects/:id/settings", (req, res) => {
+  app.post("/projects/:id/settings", async (req, res) => {
     const project = getProject(req.params.id);
     if (!project) {
       res.status(404).send("프로젝트를 찾을 수 없습니다.");
       return;
     }
 
+    const durationMinutes = parseDurationMinutes(req.body.durationMinutes, project.settings?.durationMinutes || 10);
+    const topicPrompt = normalizeTopicPrompt(
+      req.body.topicPrompt || req.body.topic || project.settings?.topicPrompt || project.topic
+    );
+    const language = req.body.language?.trim() || project.language;
+    const tone = req.body.tone?.trim() || project.tone;
+    const resolvedTopic = await resolveTopicFromInput({
+      topicPrompt,
+      language,
+      tone,
+      fallbackTopic: project.topic
+    });
+
     updateProject(project.id, {
-      topic: req.body.topic?.trim() || project.topic,
-      language: req.body.language?.trim() || project.language,
-      tone: req.body.tone?.trim() || project.tone,
+      topic: resolvedTopic,
+      language,
+      tone,
       format: req.body.format?.trim() || project.format,
       channel_id: req.body.channelId?.trim() || null,
       scheduled_at: req.body.scheduledAt?.trim() || null,
       updated_at: new Date().toISOString(),
       settings_json: JSON.stringify({
         ...(project.settings ?? {}),
+        topicPrompt,
         customPrompt: req.body.customPrompt?.trim() || "",
-        durationMinutes: parseDurationMinutes(req.body.durationMinutes, project.settings?.durationMinutes || 10)
+        durationMinutes
       })
     });
 
@@ -145,18 +176,24 @@ export function createApp() {
     }
 
     try {
-      const durationMinutes = project.settings?.durationMinutes || 10;
-      const research = await fetchTrendIdeas(project.topic, project.language);
+      const hydrated = await hydrateProjectTopic(project);
+      const durationMinutes = hydrated.settings?.durationMinutes || 10;
+      const research = await fetchTrendIdeas({
+        topicPrompt: hydrated.settings?.topicPrompt || hydrated.topic,
+        topic: hydrated.topic,
+        language: hydrated.language
+      });
       const script = await generateScript({
-        topic: project.topic,
-        tone: project.tone,
-        language: project.language,
+        topic: hydrated.topic,
+        tone: hydrated.tone,
+        language: hydrated.language,
         research,
-        customPrompt: project.settings?.customPrompt || "",
+        customPrompt: hydrated.settings?.customPrompt || "",
         durationMinutes
       });
 
       updateProject(project.id, {
+        topic: research.selectedTopic || hydrated.topic,
         updated_at: new Date().toISOString(),
         research_json: JSON.stringify(research),
         script_text: script
@@ -176,12 +213,19 @@ export function createApp() {
     }
 
     try {
-      const research = await fetchTrendIdeas(project.topic, project.language);
+      const hydrated = await hydrateProjectTopic(project);
+      const research = await fetchTrendIdeas({
+        topicPrompt: hydrated.settings?.topicPrompt || hydrated.topic,
+        topic: hydrated.topic,
+        language: hydrated.language
+      });
+
       updateProject(project.id, {
+        topic: research.selectedTopic || hydrated.topic,
         updated_at: new Date().toISOString(),
         research_json: JSON.stringify({
           ...research,
-          manualNotes: project.research?.manualNotes || ""
+          manualNotes: hydrated.research?.manualNotes || ""
         })
       });
 
@@ -200,6 +244,7 @@ export function createApp() {
 
     const manualResearch = {
       source: project.research?.source || "manual",
+      selectedTopic: project.topic,
       summary: req.body.summary?.trim() || "",
       ideas: splitLines(req.body.ideas),
       manualNotes: req.body.manualNotes?.trim() || ""
@@ -221,18 +266,24 @@ export function createApp() {
     }
 
     try {
-      const durationMinutes = project.settings?.durationMinutes || 10;
-      const research = project.research ?? await fetchTrendIdeas(project.topic, project.language);
+      const hydrated = await hydrateProjectTopic(project);
+      const durationMinutes = hydrated.settings?.durationMinutes || 10;
+      const research = hydrated.research ?? await fetchTrendIdeas({
+        topicPrompt: hydrated.settings?.topicPrompt || hydrated.topic,
+        topic: hydrated.topic,
+        language: hydrated.language
+      });
       const script = await generateScript({
-        topic: project.topic,
-        tone: project.tone,
-        language: project.language,
+        topic: hydrated.topic,
+        tone: hydrated.tone,
+        language: hydrated.language,
         research,
-        customPrompt: project.settings?.customPrompt || "",
+        customPrompt: hydrated.settings?.customPrompt || "",
         durationMinutes
       });
 
       updateProject(project.id, {
+        topic: research.selectedTopic || hydrated.topic,
         updated_at: new Date().toISOString(),
         research_json: JSON.stringify(research),
         script_text: script
@@ -348,9 +399,9 @@ export function createApp() {
         imageUrl: toPublicStorageUrl(scene.imagePath)
       })),
       notes: [
-        "Google Vids 직접 생성 API는 현재 확인되지 않았습니다.",
-        "현재 구조는 mp4와 자막, 장면 이미지를 묶어서 Google Drive 또는 Google Vids 쪽으로 넘기기 쉬운 형태입니다.",
-        "Slides를 먼저 만든 뒤 Google Vids로 변환하는 우회 흐름도 검토할 수 있습니다."
+        "Google Vids 직접 생성 API는 아직 연결하지 않았습니다.",
+        "현재 구조는 mp4, 자막, 장면 이미지를 묶어 Drive 또는 Vids 후속 작업에 넘기기 쉽게 구성되어 있습니다.",
+        "Slides를 먼저 만든 뒤 Google Vids로 넘기는 방식도 검토할 수 있습니다."
       ]
     });
   });
@@ -415,6 +466,7 @@ function renderProjectPage(res, projectId, requestedStep, helpAnswer, noticeKey)
 
   const activeStep = normalizeStep(requestedStep);
   const steps = buildWorkflowSteps(project, activeStep);
+  const topicPromptText = project.settings?.topicPrompt || project.topic || "";
 
   res.render("project", {
     project,
@@ -425,18 +477,19 @@ function renderProjectPage(res, projectId, requestedStep, helpAnswer, noticeKey)
     helpAnswer,
     durationOptions,
     noticeMessage: getNoticeMessage(noticeKey),
+    topicPromptText,
     researchIdeasText: (project.research?.ideas ?? []).join("\n"),
     researchSummaryText: project.research?.summary ?? "",
     researchNotesText: project.research?.manualNotes ?? "",
     googleVidsNotes: [
-      "공식 문서 기준으로 Google Vids는 Drive의 영상을 불러와 편집하고 mp4로 내보낼 수 있습니다.",
-      "현재는 Vids 직접 생성 API보다 결과물 묶음을 내보내는 방식이 더 안정적입니다.",
-      "이 프로젝트는 mp4, 자막, 장면 이미지 묶음을 만들어 Vids 연동 또는 Drive 후속 작업에 맞춰 둔 상태입니다."
+      "공식 문서 기준으로 Google Vids는 Drive 자산과 mp4 기반 작업 흐름이 가장 안정적입니다.",
+      "현재는 결과물 묶음을 JSON으로 열어 후속 작업에 넘길 수 있게 맞춰 두었습니다.",
+      "이 프로젝트의 mp4, 자막, 장면 이미지를 한 번에 확인할 수 있습니다."
     ],
     githubStatus: {
       localGitReady: true,
-      remoteConnected: false,
-      note: "로컬 Git은 준비되어 있지만 원격 저장소가 아직 연결되지 않아 GitHub 푸시는 대기 상태입니다."
+      remoteConnected: true,
+      note: "현재 GitHub 원격 저장소가 연결되어 있습니다."
     }
   });
 }
@@ -520,6 +573,66 @@ function homeSectionShortLabel(section) {
   return labels[section];
 }
 
+function normalizeTopicPrompt(value) {
+  return String(value ?? "")
+    .replace(/\r\n/g, "\n")
+    .trim();
+}
+
+async function resolveTopicFromInput({ topicPrompt, language, tone, fallbackTopic }) {
+  const prompt = normalizeTopicPrompt(topicPrompt);
+  if (!prompt) {
+    return fallbackTopic?.trim() || "주제 미정";
+  }
+
+  const resolvedTopic = await deriveTopicFromPrompt({
+    topicPrompt: prompt,
+    language,
+    tone,
+    fallbackTopic
+  });
+
+  return resolvedTopic?.trim() || fallbackTopic?.trim() || "주제 미정";
+}
+
+async function hydrateProjectTopic(project) {
+  const topicPrompt = project.settings?.topicPrompt || project.topic || "";
+  const needsResolution = !project.topic || isInstructionLikeTopic(project.topic) || isWeakResolvedTopic(project.topic);
+
+  if (!needsResolution && project.settings?.topicPrompt) {
+    return project;
+  }
+
+  const resolvedTopic = await resolveTopicFromInput({
+    topicPrompt,
+    language: project.language,
+    tone: project.tone,
+    fallbackTopic: project.topic
+  });
+
+  const nextSettings = {
+    ...(project.settings ?? {}),
+    topicPrompt
+  };
+
+  updateProject(project.id, {
+    topic: resolvedTopic,
+    updated_at: new Date().toISOString(),
+    settings_json: JSON.stringify(nextSettings)
+  });
+
+  return getProject(project.id);
+}
+
+async function hydrateProjectById(projectId) {
+  const project = getProject(projectId);
+  if (!project) {
+    return null;
+  }
+
+  return hydrateProjectTopic(project);
+}
+
 function parseDurationMinutes(value, fallback = 10) {
   const parsed = Number.parseInt(String(value ?? ""), 10);
   return durationOptions.includes(parsed) ? parsed : fallback;
@@ -528,11 +641,11 @@ function parseDurationMinutes(value, fallback = 10) {
 function getNoticeMessage(noticeKey) {
   const messages = {
     "project-created": "프로젝트가 생성되었습니다. 먼저 주제 프롬프트와 영상 길이를 확인해 주세요.",
-    "topic-saved": "주제 설정이 저장되었습니다.",
-    "research-auto": "자동 리서치 결과를 불러왔습니다.",
-    "research-saved": "리서치 내용이 저장되었습니다.",
+    "topic-saved": "주제 프롬프트를 반영해 도출된 주제를 저장했습니다.",
+    "research-auto": "프롬프트를 반영한 리서치 결과를 자동 수집했습니다.",
+    "research-saved": "리서치 내용을 저장했습니다.",
     "script-auto": "영상 길이에 맞춘 대본 초안을 생성했습니다.",
-    "script-saved": "대본이 저장되었습니다.",
+    "script-saved": "대본을 저장했습니다.",
     "bootstrap-complete": "주제부터 대본까지 자동 생성이 완료되었습니다.",
     "render-complete": "렌더 실행이 완료되었습니다.",
     "scene-regenerated": "선택한 장면을 다시 생성했습니다."
@@ -542,7 +655,7 @@ function getNoticeMessage(noticeKey) {
 }
 
 function splitLines(value) {
-  return (value || "")
+  return String(value ?? "")
     .split(/\r?\n/)
     .map((item) => item.trim())
     .filter(Boolean);

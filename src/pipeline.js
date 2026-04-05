@@ -4,8 +4,11 @@ import { getProject, projectsRoot, updateProject } from "./db.js";
 import {
   answerHelpQuestion,
   buildStyleProfile,
+  deriveTopicFromPrompt,
   fetchTrendIdeas,
   generateScript,
+  isInstructionLikeTopic,
+  isWeakResolvedTopic,
   planScenes
 } from "./services/content.js";
 import {
@@ -20,9 +23,34 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+async function hydrateRuntimeProject(project) {
+  const topicPrompt = project.settings?.topicPrompt || project.topic || "";
+
+  if (project.topic && !isInstructionLikeTopic(project.topic) && !isWeakResolvedTopic(project.topic) && project.settings?.topicPrompt) {
+    return project;
+  }
+
+  const topic = await deriveTopicFromPrompt({
+    topicPrompt,
+    language: project.language,
+    fallbackTopic: project.topic
+  });
+
+  updateProject(project.id, {
+    topic,
+    updated_at: nowIso(),
+    settings_json: JSON.stringify({
+      ...(project.settings ?? {}),
+      topicPrompt
+    })
+  });
+
+  return getProject(project.id);
+}
+
 export async function runProject(projectId, options = {}) {
-  const project = getProject(projectId);
-  if (!project) {
+  const initialProject = getProject(projectId);
+  if (!initialProject) {
     throw new Error("프로젝트를 찾을 수 없습니다.");
   }
 
@@ -32,6 +60,7 @@ export async function runProject(projectId, options = {}) {
   });
 
   try {
+    const project = await hydrateRuntimeProject(getProject(projectId));
     const projectDir = path.join(projectsRoot, projectId);
     const scenesDir = path.join(projectDir, "scenes");
     const audioDir = path.join(projectDir, "audio");
@@ -41,14 +70,18 @@ export async function runProject(projectId, options = {}) {
     fs.mkdirSync(audioDir, { recursive: true });
     fs.mkdirSync(videoDir, { recursive: true });
 
-    const research = project.research ?? await fetchTrendIdeas(project.topic, project.language);
+    const research = project.research ?? await fetchTrendIdeas({
+      topicPrompt: project.settings?.topicPrompt || project.topic,
+      topic: project.topic,
+      language: project.language
+    });
     const styleProfile = project.styleProfile ?? await buildStyleProfile(project.style_reference_path, project.format);
     const script = project.script_text ?? await generateScript({
-      topic: project.topic,
+      topic: research.selectedTopic || project.topic,
       tone: project.tone,
       language: project.language,
       research,
-      customPrompt: project.settings.customPrompt,
+      customPrompt: project.settings?.customPrompt || "",
       durationMinutes: project.settings?.durationMinutes || 10
     });
 
@@ -56,11 +89,11 @@ export async function runProject(projectId, options = {}) {
       ? project.scenes
       : planScenes({
           script,
-          topic: project.topic,
+          topic: research.selectedTopic || project.topic,
           tone: project.tone,
           format: project.format,
           styleProfile,
-          customPrompt: project.settings.customPrompt
+          customPrompt: project.settings?.customPrompt || ""
         });
 
     const scenes = [...baseScenes];
@@ -111,7 +144,7 @@ export async function runProject(projectId, options = {}) {
 
     await buildThumbnail({
       imagePath: scenes[0].imagePath,
-      title: project.topic,
+      title: research.selectedTopic || project.topic,
       outputPath: thumbnailPath,
       format: project.format
     });
@@ -125,6 +158,7 @@ export async function runProject(projectId, options = {}) {
     };
 
     updateProject(projectId, {
+      topic: research.selectedTopic || project.topic,
       status: "ready",
       updated_at: nowIso(),
       research_json: JSON.stringify(research),
@@ -140,7 +174,7 @@ export async function runProject(projectId, options = {}) {
       status: "failed",
       updated_at: nowIso(),
       output_json: JSON.stringify({
-        ...(project.output ?? {}),
+        ...(initialProject.output ?? {}),
         error: error instanceof Error ? error.message : "알 수 없는 오류"
       })
     });

@@ -33,11 +33,11 @@
           <p class="section-tag">Workflow</p>
           <ul class="studio-side-list">
             <li>주제 프롬프트 입력</li>
-            <li>소재 자동 수집</li>
-            <li>대본 자동 생성</li>
-            <li>장면 편집</li>
-            <li>렌더 확인</li>
-            <li>업로드 연동</li>
+            <li>프롬프트 기준 주제 도출</li>
+            <li>소재 발굴과 리서치 저장</li>
+            <li>길이 기반 대본 자동 생성</li>
+            <li>장면 생성과 렌더 확인</li>
+            <li>예약 업로드 연동</li>
           </ul>
         </section>
       </aside>
@@ -47,10 +47,10 @@
           <section class="topbar-card">
             <div>
               <p class="section-tag">Studio Dashboard</p>
-              <h1>자동 제작 현황</h1>
-              <p class="lead-text">좌측은 탐색, 중앙은 실제 작업 카드로 구성했습니다. 프로젝트를 만들면 단계형 편집 화면으로 바로 이동합니다.</p>
+              <h1>롱폼 제작 대시보드</h1>
+              <p class="lead-text">왼쪽은 스튜디오 탐색, 가운데는 작업 카드 중심으로 구성했습니다. 새 프로젝트를 만들면 단계별 편집 화면으로 바로 이동합니다.</p>
             </div>
-            <a class="ghost-button" href="/workspace/create">새 제작 시작</a>
+            <a class="ghost-button" href="/workspace/create">새 프로젝트</a>
           </section>
 
           <section class="studio-metrics">
@@ -74,18 +74,18 @@
                 <div class="panel-header">
                   <div>
                     <p class="section-tag">Quick Actions</p>
-                    <h2>바로 실행</h2>
+                    <h2>빠른 실행</h2>
                   </div>
                   <a class="inline-link" href="/workspace/projects">전체 프로젝트 보기</a>
                 </div>
                 <div class="action-grid">
                   <a class="action-card" href="/workspace/create">
                     <strong>새 프로젝트 생성</strong>
-                    <p>주제 프롬프트, 영상 길이, 채널, 예약 시간을 먼저 등록합니다.</p>
+                    <p>주제 프롬프트, 영상 길이, 채널, 예약 시간을 한 번에 입력합니다.</p>
                   </a>
                   <a class="action-card" href="/workspace/channels">
                     <strong>업로드 채널 연결</strong>
-                    <p>n8n 웹훅과 유튜브 업로드 채널 정보를 관리합니다.</p>
+                    <p>n8n 웹훅과 업로드 채널 정보를 저장합니다.</p>
                   </a>
                 </div>
               </article>
@@ -101,7 +101,7 @@
                   <% if (!projects.length) { %>
                     <div class="empty-card">
                       <strong>프로젝트가 없습니다.</strong>
-                      <p>제작 시작 화면에서 첫 프로젝트를 생성하십시오.</p>
+                      <p>제작 시작 화면에서 첫 프로젝트를 생성해 주세요.</p>
                     </div>
                   <% } %>
                   <% projects.slice(0, 5).forEach((project) => { %>
@@ -130,22 +130,22 @@
                   <div class="timeline-row done">
                     <span class="timeline-bullet"></span>
                     <div>
-                      <strong>프롬프트 기반 주제 설정</strong>
-                      <p>짧은 제목이 아니라 원하는 구성과 메시지를 프롬프트로 입력합니다.</p>
+                      <strong>주제 프롬프트 저장</strong>
+                      <p>짧은 제목이 아니라 원하는 결과를 문장으로 입력합니다.</p>
                     </div>
                   </div>
                   <div class="timeline-row">
                     <span class="timeline-bullet"></span>
                     <div>
-                      <strong>리서치 저장과 확인</strong>
-                      <p>저장 버튼을 누르면 저장 안내와 현재 저장된 내용이 같이 보입니다.</p>
+                      <strong>도출된 주제 확인</strong>
+                      <p>프롬프트를 저장하면 실제 사용할 주제가 자동으로 정리됩니다.</p>
                     </div>
                   </div>
                   <div class="timeline-row">
                     <span class="timeline-bullet"></span>
                     <div>
-                      <strong>영상 길이 기반 대본 생성</strong>
-                      <p>기본은 10분이며, 선택한 길이에 맞춰 자동 대본을 생성합니다.</p>
+                      <strong>길이 기준 대본 생성</strong>
+                      <p>선택한 영상 길이를 기준으로 자동 대본을 생성합니다.</p>
                     </div>
                   </div>
                 </div>
@@ -159,7 +159,7 @@
             <div>
               <p class="section-tag">Create Studio</p>
               <h1>새 프로젝트 생성</h1>
-              <p class="lead-text">프로젝트를 만들 때 주제 프롬프트와 목표 영상 길이를 먼저 정합니다. 기본 길이는 10분입니다.</p>
+              <p class="lead-text">주제 프롬프트를 입력하면 저장 단계에서 실제 사용할 주제가 도출됩니다. 기본 영상 길이는 10분입니다.</p>
             </div>
           </section>
 
@@ -176,9 +176,9 @@
               <form class="form-grid studio-form" action="/projects" method="post" enctype="multipart/form-data">
                 <label class="wide">주제 프롬프트
                   <textarea
-                    name="topic"
+                    name="topicPrompt"
                     class="prompt-textarea"
-                    placeholder="예: BBC 헤드라인 스타일로 오늘 가장 중요한 국제 이슈 3개를 정리하고, 각 이슈의 배경과 앞으로의 영향을 쉽게 설명해 주세요."
+                    placeholder="예: BBC 헤드라인 스타일로 오늘 가장 중요한 국제 뉴스 3가지를 정리하고, 각 뉴스의 배경과 앞으로의 영향까지 설명해 주세요."
                     required
                   ></textarea>
                 </label>
@@ -224,7 +224,7 @@
                 </label>
 
                 <label class="wide">추가 지시
-                  <input type="text" name="customPrompt" placeholder="예: 차분하고 신뢰감 있게, 너무 자극적인 표현은 제외" />
+                  <input type="text" name="customPrompt" placeholder="예: 차분하고 신뢰감 있게, 과장 없는 설명 톤" />
                 </label>
 
                 <label>스타일 레퍼런스
@@ -252,7 +252,7 @@
             <div>
               <p class="section-tag">Channels</p>
               <h1>업로드 채널 관리</h1>
-              <p class="lead-text">유튜브 업로드 자동화를 위한 채널과 웹훅 연결을 한곳에서 관리합니다.</p>
+              <p class="lead-text">유튜브 업로드 자동화를 위한 채널과 n8n 웹훅 주소를 저장합니다.</p>
             </div>
           </section>
 
@@ -294,7 +294,7 @@
                   <% if (!channels.length) { %>
                     <div class="empty-card">
                       <strong>등록된 채널이 없습니다.</strong>
-                      <p>먼저 업로드 채널을 추가하십시오.</p>
+                      <p>먼저 업로드 채널을 추가해 주세요.</p>
                     </div>
                   <% } %>
                   <% channels.forEach((channel) => { %>
@@ -317,7 +317,7 @@
             <div>
               <p class="section-tag">Project Library</p>
               <h1>프로젝트 보관함</h1>
-              <p class="lead-text">생성한 프로젝트를 다시 열어 단계형 편집 화면으로 이동합니다.</p>
+              <p class="lead-text">생성한 프로젝트를 다시 열어 단계별 편집 화면으로 이동합니다.</p>
             </div>
           </section>
 
@@ -333,7 +333,7 @@
                 <% if (!projects.length) { %>
                   <div class="empty-card">
                     <strong>프로젝트가 없습니다.</strong>
-                    <p>제작 시작 화면에서 첫 프로젝트를 생성하십시오.</p>
+                    <p>제작 시작 화면에서 첫 프로젝트를 생성해 주세요.</p>
                   </div>
                 <% } %>
                 <% projects.forEach((project) => { %>
