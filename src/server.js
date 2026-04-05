@@ -26,6 +26,7 @@ const appBaseUrl = process.env.APP_BASE_URL || `http://localhost:${port}`;
 const versionLabel = getVersionLabel();
 const homeSections = ["dashboard", "create", "channels", "projects"];
 const workflowOrder = ["topic", "research", "script", "scenes", "render", "publish"];
+const durationOptions = [1, 3, 5, 8, 10, 12, 15];
 
 export function createApp() {
   const app = express();
@@ -47,11 +48,11 @@ export function createApp() {
   });
 
   app.get("/projects/:id/:step", (req, res) => {
-    renderProjectPage(res, req.params.id, req.params.step);
+    renderProjectPage(res, req.params.id, req.params.step, undefined, req.query.notice);
   });
 
   app.get("/projects/:id", (req, res) => {
-    renderProjectPage(res, req.params.id, req.query.step);
+    renderProjectPage(res, req.params.id, req.query.step, undefined, req.query.notice);
   });
 
   app.post("/channels", (req, res) => {
@@ -77,10 +78,11 @@ export function createApp() {
       const files = req.files;
       const id = randomUUID();
       const now = new Date().toISOString();
+      const durationMinutes = parseDurationMinutes(req.body.durationMinutes, 10);
 
       createProject({
         id,
-        topic: req.body.topic?.trim() || "새 롱폼 프로젝트",
+        topic: req.body.topic?.trim() || "주제 프롬프트를 입력해 주세요.",
         language: req.body.language?.trim() || "ko",
         tone: req.body.tone?.trim() || "정보형",
         format: req.body.format?.trim() || "portrait",
@@ -92,6 +94,7 @@ export function createApp() {
         watermark_path: files?.watermarkFile?.[0]?.path || null,
         settings_json: JSON.stringify({
           customPrompt: req.body.customPrompt?.trim() || "",
+          durationMinutes,
           bgmEnabled: Boolean(files?.bgmFile?.[0]?.path),
           watermarkEnabled: Boolean(files?.watermarkFile?.[0]?.path),
           styleConsistency: Boolean(files?.styleReference?.[0]?.path)
@@ -105,7 +108,7 @@ export function createApp() {
         updated_at: now
       });
 
-      res.redirect(`/projects/${id}/topic`);
+      res.redirect(`/projects/${id}/topic?notice=project-created`);
     }
   );
 
@@ -126,11 +129,12 @@ export function createApp() {
       updated_at: new Date().toISOString(),
       settings_json: JSON.stringify({
         ...(project.settings ?? {}),
-        customPrompt: req.body.customPrompt?.trim() || ""
+        customPrompt: req.body.customPrompt?.trim() || "",
+        durationMinutes: parseDurationMinutes(req.body.durationMinutes, project.settings?.durationMinutes || 10)
       })
     });
 
-    res.redirect(`/projects/${project.id}/topic`);
+    res.redirect(`/projects/${project.id}/topic?notice=topic-saved`);
   });
 
   app.post("/projects/:id/bootstrap", async (req, res) => {
@@ -141,13 +145,15 @@ export function createApp() {
     }
 
     try {
+      const durationMinutes = project.settings?.durationMinutes || 10;
       const research = await fetchTrendIdeas(project.topic, project.language);
       const script = await generateScript({
         topic: project.topic,
         tone: project.tone,
         language: project.language,
         research,
-        customPrompt: project.settings?.customPrompt || ""
+        customPrompt: project.settings?.customPrompt || "",
+        durationMinutes
       });
 
       updateProject(project.id, {
@@ -156,9 +162,9 @@ export function createApp() {
         script_text: script
       });
 
-      res.redirect(`/projects/${project.id}/script`);
+      res.redirect(`/projects/${project.id}/script?notice=bootstrap-complete`);
     } catch (error) {
-      res.status(500).send(error instanceof Error ? error.message : "자동 초안 생성 실패");
+      res.status(500).send(error instanceof Error ? error.message : "자동 초안 생성에 실패했습니다.");
     }
   });
 
@@ -179,9 +185,9 @@ export function createApp() {
         })
       });
 
-      res.redirect(`/projects/${project.id}/research`);
+      res.redirect(`/projects/${project.id}/research?notice=research-auto`);
     } catch (error) {
-      res.status(500).send(error instanceof Error ? error.message : "리서치 자동 수집 실패");
+      res.status(500).send(error instanceof Error ? error.message : "리서치 자동 수집에 실패했습니다.");
     }
   });
 
@@ -204,7 +210,7 @@ export function createApp() {
       research_json: JSON.stringify(manualResearch)
     });
 
-    res.redirect(`/projects/${project.id}/research`);
+    res.redirect(`/projects/${project.id}/research?notice=research-saved`);
   });
 
   app.post("/projects/:id/script/auto", async (req, res) => {
@@ -215,13 +221,15 @@ export function createApp() {
     }
 
     try {
+      const durationMinutes = project.settings?.durationMinutes || 10;
       const research = project.research ?? await fetchTrendIdeas(project.topic, project.language);
       const script = await generateScript({
         topic: project.topic,
         tone: project.tone,
         language: project.language,
         research,
-        customPrompt: project.settings?.customPrompt || ""
+        customPrompt: project.settings?.customPrompt || "",
+        durationMinutes
       });
 
       updateProject(project.id, {
@@ -230,9 +238,9 @@ export function createApp() {
         script_text: script
       });
 
-      res.redirect(`/projects/${project.id}/script`);
+      res.redirect(`/projects/${project.id}/script?notice=script-auto`);
     } catch (error) {
-      res.status(500).send(error instanceof Error ? error.message : "대본 자동 생성 실패");
+      res.status(500).send(error instanceof Error ? error.message : "대본 자동 생성에 실패했습니다.");
     }
   });
 
@@ -248,15 +256,15 @@ export function createApp() {
       script_text: req.body.script?.trim() || ""
     });
 
-    res.redirect(`/projects/${project.id}/script`);
+    res.redirect(`/projects/${project.id}/script?notice=script-saved`);
   });
 
   app.post("/projects/:id/run", async (req, res) => {
     try {
       await runProject(req.params.id);
-      res.redirect(`/projects/${req.params.id}/render`);
+      res.redirect(`/projects/${req.params.id}/render?notice=render-complete`);
     } catch (error) {
-      res.status(500).send(error instanceof Error ? error.message : "실행 실패");
+      res.status(500).send(error instanceof Error ? error.message : "렌더 실행에 실패했습니다.");
     }
   });
 
@@ -265,9 +273,9 @@ export function createApp() {
       await runProject(req.params.id, {
         regenerateSceneIndex: Number(req.params.sceneIndex)
       });
-      res.redirect(`/projects/${req.params.id}/scenes`);
+      res.redirect(`/projects/${req.params.id}/scenes?notice=scene-regenerated`);
     } catch (error) {
-      res.status(500).send(error instanceof Error ? error.message : "장면 재생성 실패");
+      res.status(500).send(error instanceof Error ? error.message : "장면 재생성에 실패했습니다.");
     }
   });
 
@@ -276,7 +284,7 @@ export function createApp() {
       const answer = askProjectHelp(req.params.id, req.body.question || "");
       renderProjectPage(res, req.params.id, "publish", answer);
     } catch (error) {
-      res.status(500).send(error instanceof Error ? error.message : "도움말 실패");
+      res.status(500).send(error instanceof Error ? error.message : "도움말 생성에 실패했습니다.");
     }
   });
 
@@ -340,9 +348,9 @@ export function createApp() {
         imageUrl: toPublicStorageUrl(scene.imagePath)
       })),
       notes: [
-        "Google Vids 직접 생성 API는 확인되지 않았습니다.",
-        "현재 구조는 MP4와 자산 묶음을 만들어 Google Drive 또는 Google Vids 수동 가져오기에 맞춘 형태입니다.",
-        "Slides를 먼저 만든 뒤 Google Vids로 변환하는 흐름도 별도 자동화 후보입니다."
+        "Google Vids 직접 생성 API는 현재 확인되지 않았습니다.",
+        "현재 구조는 mp4와 자막, 장면 이미지를 묶어서 Google Drive 또는 Google Vids 쪽으로 넘기기 쉬운 형태입니다.",
+        "Slides를 먼저 만든 뒤 Google Vids로 변환하는 우회 흐름도 검토할 수 있습니다."
       ]
     });
   });
@@ -387,6 +395,7 @@ function renderHomePage(res, requestedSection) {
     projects,
     versionLabel,
     activeHomeSection,
+    durationOptions,
     homeNav: homeSections.map((section) => ({
       key: section,
       href: `/workspace/${section}`,
@@ -397,7 +406,7 @@ function renderHomePage(res, requestedSection) {
   });
 }
 
-function renderProjectPage(res, projectId, requestedStep, helpAnswer) {
+function renderProjectPage(res, projectId, requestedStep, helpAnswer, noticeKey) {
   const project = getProject(projectId);
   if (!project) {
     res.status(404).send("프로젝트를 찾을 수 없습니다.");
@@ -414,18 +423,20 @@ function renderProjectPage(res, projectId, requestedStep, helpAnswer) {
     channels: listChannels(),
     versionLabel,
     helpAnswer,
+    durationOptions,
+    noticeMessage: getNoticeMessage(noticeKey),
     researchIdeasText: (project.research?.ideas ?? []).join("\n"),
     researchSummaryText: project.research?.summary ?? "",
     researchNotesText: project.research?.manualNotes ?? "",
     googleVidsNotes: [
-      "공식 문서 기준으로 Google Vids는 Drive 비디오를 편집하고 MP4로 다운로드할 수 있습니다.",
-      "공식 개발자 문서에서는 Google Vids를 MP4로 내보내는 형식만 확인됐고, 생성/편집 API는 확인되지 않았습니다.",
-      "그래서 현재 프로젝트는 MP4, 자막, 장면 이미지 묶음을 만들어 Vids 수동 가져오기 또는 Drive 기반 후속 작업에 맞췄습니다."
+      "공식 문서 기준으로 Google Vids는 Drive의 영상을 불러와 편집하고 mp4로 내보낼 수 있습니다.",
+      "현재는 Vids 직접 생성 API보다 결과물 묶음을 내보내는 방식이 더 안정적입니다.",
+      "이 프로젝트는 mp4, 자막, 장면 이미지 묶음을 만들어 Vids 연동 또는 Drive 후속 작업에 맞춰 둔 상태입니다."
     ],
     githubStatus: {
       localGitReady: true,
       remoteConnected: false,
-      note: "로컬 Git은 준비했지만 GitHub 앱 설치 저장소가 아직 없어 원격 연결은 대기 상태입니다."
+      note: "로컬 Git은 준비되어 있지만 원격 저장소가 아직 연결되지 않아 GitHub 푸시는 대기 상태입니다."
     }
   });
 }
@@ -459,7 +470,7 @@ function stepLabel(step) {
     research: "2. 소재 발굴",
     script: "3. 대본 작성",
     scenes: "4. 장면 편집",
-    render: "5. 렌더링",
+    render: "5. 렌더 결과",
     publish: "6. 업로드"
   };
 
@@ -507,6 +518,27 @@ function homeSectionShortLabel(section) {
   };
 
   return labels[section];
+}
+
+function parseDurationMinutes(value, fallback = 10) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  return durationOptions.includes(parsed) ? parsed : fallback;
+}
+
+function getNoticeMessage(noticeKey) {
+  const messages = {
+    "project-created": "프로젝트가 생성되었습니다. 먼저 주제 프롬프트와 영상 길이를 확인해 주세요.",
+    "topic-saved": "주제 설정이 저장되었습니다.",
+    "research-auto": "자동 리서치 결과를 불러왔습니다.",
+    "research-saved": "리서치 내용이 저장되었습니다.",
+    "script-auto": "영상 길이에 맞춘 대본 초안을 생성했습니다.",
+    "script-saved": "대본이 저장되었습니다.",
+    "bootstrap-complete": "주제부터 대본까지 자동 생성이 완료되었습니다.",
+    "render-complete": "렌더 실행이 완료되었습니다.",
+    "scene-regenerated": "선택한 장면을 다시 생성했습니다."
+  };
+
+  return messages[noticeKey] || null;
 }
 
 function splitLines(value) {

@@ -16,14 +16,14 @@ function normalizeLanguage(language) {
 
 function defaultTopicByLanguage(language) {
   if (language === "en") {
-    return "productivity habits";
+    return "Create a practical longform explainer about building better daily habits.";
   }
 
   if (language === "ja") {
-    return "睡眠の質を上げる習慣";
+    return "生活の質を上げるための習慣を分かりやすく解説してください。";
   }
 
-  return "수면의 질을 높이는 습관";
+  return "생활의 질을 높이는 습관을 실제 사례 중심으로 설명해 주세요.";
 }
 
 export async function fetchTrendIdeas(topic, language) {
@@ -39,81 +39,138 @@ export async function fetchTrendIdeas(topic, language) {
 
     return {
       source: `google-daily-trends-${geo}`,
-      ideas: ideas.slice(0, 10),
-      summary: `${seedTopic}와 연결해 볼 만한 실시간 키워드를 모았습니다.`
+      ideas: ideas.slice(0, 12),
+      summary: `${seedTopic}와 연결할 수 있는 최근 관심 키워드를 모았습니다.`
     };
   } catch {
     return {
       source: `fallback-${geo}`,
       ideas: [
         `${seedTopic} 최신 이슈`,
-        `${seedTopic} 입문 가이드`,
-        `${seedTopic} 실수 방지`,
-        `${seedTopic} 비교 분석`,
-        `${seedTopic} 실제 사례`
+        `${seedTopic} 초보자 가이드`,
+        `${seedTopic} 실수 사례`,
+        `${seedTopic} 비교 포인트`,
+        `${seedTopic} 실제 후기`,
+        `${seedTopic} 추천 방법`
       ],
-      summary: `${seedTopic} 기준으로 기본 리서치 목록을 만들었습니다.`
+      summary: `${seedTopic}를 기준으로 기본 리서치 목록을 만들었습니다.`
     };
   }
 }
 
-function fallbackScript({ topic, language, research, customPrompt }) {
-  const safeTopic = topic?.trim() || defaultTopicByLanguage(language);
-  const ideas = (research?.ideas ?? []).slice(0, 5).join(", ");
-
-  const lines = language === "en"
-    ? [
-        `Today we break down ${safeTopic} in a simple and practical way.`,
-        `First, we explain why ${safeTopic} matters now and how it connects to current trends such as ${ideas}.`,
-        "Next, we turn this into a step-by-step guide that a beginner can follow immediately.",
-        "Then we compare common mistakes, useful examples, and realistic choices.",
-        "Finally, we summarize what to do today and what to avoid."
-      ]
-    : language === "ja"
-      ? [
-          `今回は${safeTopic}を、すぐ使える形で分かりやすく整理します。`,
-          `まず、${safeTopic}が今なぜ重要なのかと、${ideas}のような関連話題を見ていきます。`,
-          "次に、初心者でもそのまま使えるように手順を細かく分けて説明します。",
-          "よくある失敗、現実的な判断基準、実例を比べながら理解しやすくまとめます。",
-          "最後に、今日すぐやることと避けることを短く整理します。"
-        ]
-      : [
-          `이번 영상에서는 ${safeTopic}를 쉽고 실용적으로 정리합니다.`,
-          `먼저 ${safeTopic}가 왜 지금 중요한지와 ${ideas} 같은 관련 흐름을 함께 봅니다.`,
-          "다음으로 초보자도 바로 따라 할 수 있게 단계별로 나눠 설명합니다.",
-          "이후 자주 하는 실수와 실제 선택 기준을 비교해서 정리합니다.",
-          "마지막으로 오늘 바로 할 일과 피해야 할 점을 짧게 마무리합니다."
-        ];
-
-  if (customPrompt) {
-    lines.push(`추가 지시: ${customPrompt}`);
-  }
-
-  return lines.join("\n\n");
+function getDurationMinutes(durationMinutes) {
+  const parsed = Number.parseInt(String(durationMinutes ?? ""), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
 }
 
-export async function generateScript({ topic, tone, language, research, customPrompt }) {
+function buildFallbackParagraphs({ topic, language, research, customPrompt, tone, durationMinutes }) {
+  const safeTopic = topic?.trim() || defaultTopicByLanguage(language);
+  const ideas = (research?.ideas ?? []).slice(0, 6);
+  const minutes = getDurationMinutes(durationMinutes);
+  const bodyCount = Math.max(8, Math.min(22, minutes * 2));
+
+  if (language === "en") {
+    const paragraphs = [
+      `In this video, we unpack ${safeTopic} in a practical way that keeps the full ${minutes}-minute runtime engaging from start to finish.`,
+      `Instead of stopping at abstract theory, we will connect ${safeTopic} to real search interest such as ${ideas.join(", ") || "recent audience questions"} and turn it into usable advice.`
+    ];
+
+    for (let index = 0; index < bodyCount; index += 1) {
+      const idea = ideas[index % Math.max(ideas.length, 1)] || safeTopic;
+      paragraphs.push(
+        `Point ${index + 1}. We look at ${idea} through the lens of ${safeTopic}, explain why people get stuck here, and show a simple way to improve results without overcomplicating the process.`
+      );
+    }
+
+    paragraphs.push("To close, we summarize what to start today, what to avoid this week, and how viewers can measure real progress over time.");
+
+    if (customPrompt) {
+      paragraphs.push(`Additional direction to reflect in tone and structure: ${customPrompt}`);
+    }
+
+    return paragraphs;
+  }
+
+  if (language === "ja") {
+    const paragraphs = [
+      `この動画では、${safeTopic}を約${minutes}分の長さで、最後まで理解しやすい流れに整理して解説します。`,
+      `${safeTopic}を単なる一般論で終わらせず、${ideas.join("、") || "最近の関心テーマ"}と結び付けながら、すぐ使える形に落とし込みます。`
+    ];
+
+    for (let index = 0; index < bodyCount; index += 1) {
+      const idea = ideas[index % Math.max(ideas.length, 1)] || safeTopic;
+      paragraphs.push(
+        `ポイント${index + 1}では、${idea}を切り口にして、よくある失敗、続かない理由、そして無理なく実践するための現実的な方法を順番に説明します。`
+      );
+    }
+
+    paragraphs.push("最後に、今日から始めること、避けること、そして継続のために確認すべき基準を簡潔にまとめます。");
+
+    if (customPrompt) {
+      paragraphs.push(`追加指示: ${customPrompt}`);
+    }
+
+    return paragraphs;
+  }
+
+  const paragraphs = [
+    `이번 영상에서는 ${safeTopic}를 약 ${minutes}분 분량으로 풀어서 설명합니다. 끝까지 들었을 때 바로 적용할 수 있도록 실제 흐름 중심으로 정리합니다.`,
+    `${safeTopic}를 단순한 정보 나열로 끝내지 않고, ${ideas.join(", ") || "최근 관심 키워드"}와 연결해서 왜 지금 중요한지부터 짚어 보겠습니다.`
+  ];
+
+  for (let index = 0; index < bodyCount; index += 1) {
+    const idea = ideas[index % Math.max(ideas.length, 1)] || safeTopic;
+    paragraphs.push(
+      `포인트 ${index + 1}. ${idea}를 기준으로 사람들이 자주 놓치는 부분, 바로 실행 가능한 방법, 실제로 오래 유지하는 요령을 순서대로 설명합니다. 톤은 ${tone || "정보형"} 기준으로 유지합니다.`
+    );
+  }
+
+  paragraphs.push("마지막에는 오늘 바로 실천할 한 가지, 이번 주 안에 점검할 한 가지, 그리고 피해야 할 실수를 짧게 정리하며 마무리합니다.");
+
+  if (customPrompt) {
+    paragraphs.push(`추가 지시 반영 메모: ${customPrompt}`);
+  }
+
+  return paragraphs;
+}
+
+function fallbackScript({ topic, tone, language, research, customPrompt, durationMinutes }) {
+  return buildFallbackParagraphs({
+    topic,
+    tone,
+    language,
+    research,
+    customPrompt,
+    durationMinutes
+  }).join("\n\n");
+}
+
+export async function generateScript({ topic, tone, language, research, customPrompt, durationMinutes }) {
   const apiKey = process.env.OPENAI_API_KEY;
   const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
   const baseUrl = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
+  const minutes = getDurationMinutes(durationMinutes);
 
   if (!apiKey) {
-    return fallbackScript({ topic, language, research, customPrompt });
+    return fallbackScript({ topic, tone, language, research, customPrompt, durationMinutes: minutes });
   }
 
-  const prompt = `
-주제: ${topic || defaultTopicByLanguage(language)}
-톤: ${tone}
-언어: ${language}
-트렌드 참고: ${(research?.ideas ?? []).join(", ")}
-추가 지시: ${customPrompt || "없음"}
-
-조건:
-- 유튜브 롱폼 내레이션 대본
-- 도입, 본론, 정리 구조
-- 문단 단위 구분
-- 반복 최소화
-`.trim();
+  const prompt = [
+    `주제 프롬프트: ${topic || defaultTopicByLanguage(language)}`,
+    `톤: ${tone || "정보형"}`,
+    `언어: ${language}`,
+    `목표 영상 길이: 약 ${minutes}분`,
+    `리서치 키워드: ${(research?.ideas ?? []).join(", ") || "없음"}`,
+    `추가 지시: ${customPrompt || "없음"}`,
+    "",
+    "조건:",
+    "- 유튜브 롱폼 내레이션 대본 형식",
+    "- 도입, 본문, 마무리가 분명해야 함",
+    `- 약 ${minutes}분 분량에 맞는 밀도로 작성`,
+    "- 문단 단위로 구분",
+    "- 실제 사례, 실수 포인트, 실행 팁 포함",
+    "- 군더더기 없는 문장으로 작성"
+  ].join("\n");
 
   try {
     const response = await fetch(`${baseUrl}/chat/completions`, {
@@ -124,11 +181,11 @@ export async function generateScript({ topic, tone, language, research, customPr
       },
       body: JSON.stringify({
         model,
-        temperature: 0.9,
+        temperature: 0.8,
         messages: [
           {
             role: "system",
-            content: "당신은 유튜브 롱폼 영상 대본 작성자입니다."
+            content: "당신은 유튜브 롱폼 영상용 내레이션 대본 작성자입니다."
           },
           {
             role: "user",
@@ -139,13 +196,14 @@ export async function generateScript({ topic, tone, language, research, customPr
     });
 
     if (!response.ok) {
-      return fallbackScript({ topic, language, research, customPrompt });
+      return fallbackScript({ topic, tone, language, research, customPrompt, durationMinutes: minutes });
     }
 
     const data = await response.json();
-    return data.choices?.[0]?.message?.content?.trim() || fallbackScript({ topic, language, research, customPrompt });
+    return data.choices?.[0]?.message?.content?.trim()
+      || fallbackScript({ topic, tone, language, research, customPrompt, durationMinutes: minutes });
   } catch {
-    return fallbackScript({ topic, language, research, customPrompt });
+    return fallbackScript({ topic, tone, language, research, customPrompt, durationMinutes: minutes });
   }
 }
 
@@ -156,12 +214,13 @@ export function planScenes({ script, topic, tone, format, styleProfile, customPr
     .filter(Boolean);
 
   const colors = styleProfile?.palette ?? ["#111827", "#2563eb", "#f8fafc"];
+  const maxScenes = Math.min(20, Math.max(8, paragraphs.length));
 
-  return paragraphs.slice(0, 10).map((paragraph, index) => ({
+  return paragraphs.slice(0, maxScenes).map((paragraph, index) => ({
     index,
-    title: `${topic} ${index + 1}`,
+    title: `${topic.split(/\r?\n/)[0].slice(0, 40)} ${index + 1}`,
     narration: paragraph,
-    durationSec: Math.max(6, Math.round(paragraph.length / 18)),
+    durationSec: Math.max(7, Math.round(paragraph.length / 14)),
     imagePrompt: [
       topic,
       tone,
@@ -214,16 +273,16 @@ export function answerHelpQuestion(project, question) {
   const lower = (question || "").toLowerCase();
 
   if (lower.includes("업로드")) {
-    return `현재 프로젝트 상태는 ${project.status}입니다. 채널 웹훅이 있으면 예약 시각에 자동 호출됩니다.`;
+    return `현재 프로젝트 상태는 ${project.status}입니다. 채널 웹훅이 연결되어 있고 예약 시간이 지나면 자동 업로드 흐름으로 넘길 수 있습니다.`;
   }
 
   if (lower.includes("장면")) {
-    return "장면별 재생성 버튼을 누르면 해당 장면 이미지만 다시 만들고 전체 영상을 다시 렌더링합니다.";
+    return "장면 재생성 버튼을 누르면 해당 장면 이미지만 다시 만들고 전체 렌더 결과도 갱신합니다.";
   }
 
   if (lower.includes("스타일")) {
     return "스타일 레퍼런스 이미지가 있으면 색상 팔레트를 추출해서 장면 프롬프트에 반영합니다.";
   }
 
-  return `현재 장면 수는 ${project.scenes.length}개이고 상태는 ${project.status}입니다. 질문을 더 짧게 적으면 바로 안내할 수 있습니다.`;
+  return `현재 장면 수는 ${project.scenes.length}개이고 프로젝트 상태는 ${project.status}입니다. 질문을 더 구체적으로 입력하면 바로 안내할 수 있습니다.`;
 }

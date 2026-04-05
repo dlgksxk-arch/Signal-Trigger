@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><%= project.topic %> - <%= versionLabel %></title>
+    <title><%= (project.topic || '').split(/\r?\n/)[0] %> - <%= versionLabel %></title>
     <link rel="stylesheet" href="/public/app.css" />
     <script src="/public/app.js" defer></script>
   </head>
@@ -51,7 +51,7 @@
             <li>상태: <strong><%= project.status %></strong></li>
             <li>채널: <strong><%= project.channel_name || '미선택' %></strong></li>
             <li>예약: <strong><%= project.scheduled_at || '없음' %></strong></li>
-            <li>업로드: <strong><%= project.output?.uploadStatus || 'pending' %></strong></li>
+            <li>길이: <strong>약 <%= project.settings?.durationMinutes || 10 %>분</strong></li>
           </ul>
         </section>
       </aside>
@@ -61,8 +61,8 @@
           <div>
             <a class="back-link" href="/workspace/projects">프로젝트 보관함으로</a>
             <p class="section-tag">Project Editor</p>
-            <h1><%= project.topic %></h1>
-            <p class="lead-text">유튜브 스튜디오의 영상 상세 편집처럼, 좌측에서 작업 단계를 고르고 중앙에서 해당 단계만 집중해서 편집합니다.</p>
+            <h1><%= (project.topic || '').split(/\r?\n/)[0] %></h1>
+            <p class="lead-text">좌측에서 작업 단계를 고르고, 중앙에서 해당 단계만 집중해서 편집합니다. 현재 목표 영상 길이는 약 <%= project.settings?.durationMinutes || 10 %>분입니다.</p>
           </div>
           <div class="editor-summary">
             <div class="metric-card primary-metric">
@@ -76,6 +76,13 @@
           </div>
         </section>
 
+        <% if (noticeMessage) { %>
+          <section class="notice-banner">
+            <strong>알림</strong>
+            <span><%= noticeMessage %></span>
+          </section>
+        <% } %>
+
         <section class="content-grid editor-grid">
           <section class="content-stack workflow-panels">
             <article class="panel-card workflow-panel <%= activeStep === 'topic' ? 'active' : '' %>" data-step-panel="topic">
@@ -83,15 +90,20 @@
                 <div>
                   <p class="section-tag">Step 1</p>
                   <h2>주제 설정</h2>
-                  <p class="card-copy">영상 제작의 기본 축을 먼저 정합니다.</p>
+                  <p class="card-copy">이 단계에서는 짧은 제목 대신 주제 프롬프트를 입력합니다.</p>
                 </div>
                 <span class="status-chip">기본 입력</span>
               </div>
 
               <form class="form-grid studio-form" action="/projects/<%= project.id %>/settings" method="post">
-                <label>주제
-                  <input type="text" name="topic" value="<%= project.topic %>" />
+                <label class="wide">주제 프롬프트
+                  <textarea
+                    name="topic"
+                    class="prompt-textarea"
+                    placeholder="예: BBC 헤드라인 스타일로 오늘 가장 중요한 국제 이슈 3개를 정리하고, 각 이슈의 배경과 앞으로의 영향을 쉽게 설명해 주세요."
+                  ><%= project.topic %></textarea>
                 </label>
+
                 <label>언어
                   <select name="language">
                     <option value="ko" <%= project.language === 'ko' ? 'selected' : '' %>>한국어</option>
@@ -99,15 +111,26 @@
                     <option value="ja" <%= project.language === 'ja' ? 'selected' : '' %>>일본어</option>
                   </select>
                 </label>
+
                 <label>톤
                   <input type="text" name="tone" value="<%= project.tone %>" />
                 </label>
+
                 <label>화면 비율
                   <select name="format">
                     <option value="portrait" <%= project.format === 'portrait' ? 'selected' : '' %>>세로형 9:16</option>
                     <option value="landscape" <%= project.format === 'landscape' ? 'selected' : '' %>>가로형 16:9</option>
                   </select>
                 </label>
+
+                <label>영상 길이
+                  <select name="durationMinutes">
+                    <% durationOptions.forEach((minutes) => { %>
+                      <option value="<%= minutes %>" <%= (project.settings?.durationMinutes || 10) === minutes ? 'selected' : '' %>><%= minutes %>분</option>
+                    <% }) %>
+                  </select>
+                </label>
+
                 <label>채널
                   <select name="channelId">
                     <option value="">선택 안 함</option>
@@ -116,14 +139,17 @@
                     <% }) %>
                   </select>
                 </label>
+
                 <label>예약 시작
                   <input type="datetime-local" name="scheduledAt" value="<%= project.scheduled_at ? project.scheduled_at.slice(0, 16) : '' %>" />
                 </label>
+
                 <label class="wide">추가 지시
                   <input type="text" name="customPrompt" value="<%= project.settings?.customPrompt || '' %>" />
                 </label>
+
                 <div class="wide form-actions">
-                  <button type="submit">주제 저장</button>
+                  <button type="submit">주제 설정 저장</button>
                 </div>
               </form>
             </article>
@@ -133,7 +159,7 @@
                 <div>
                   <p class="section-tag">Step 2</p>
                   <h2>소재 발굴</h2>
-                  <p class="card-copy">트렌드 수집 결과를 보고 직접 정리합니다.</p>
+                  <p class="card-copy">자동 수집 결과를 수정한 뒤 저장하면 바로 아래에 저장된 내용이 표시됩니다.</p>
                 </div>
                 <form action="/projects/<%= project.id %>/research/auto" method="post">
                   <button type="submit">자동 수집</button>
@@ -154,6 +180,46 @@
                   <button type="submit">리서치 저장</button>
                 </div>
               </form>
+
+              <section class="saved-preview-card">
+                <div class="panel-header preview-header">
+                  <div>
+                    <p class="section-tag">Saved Research</p>
+                    <h3>저장된 리서치 내용</h3>
+                  </div>
+                  <span class="status-chip">최근 저장 시각 <%= project.updated_at?.slice(0, 16).replace('T', ' ') || '-' %></span>
+                </div>
+
+                <% if (project.research) { %>
+                  <div class="saved-preview-grid">
+                    <div class="soft-card">
+                      <h3>저장 요약</h3>
+                      <p><%= project.research.summary || '저장된 요약이 없습니다.' %></p>
+                    </div>
+                    <div class="soft-card">
+                      <h3>저장 아이디어</h3>
+                      <% if ((project.research.ideas || []).length) { %>
+                        <ul class="preview-list">
+                          <% project.research.ideas.forEach((idea) => { %>
+                            <li><%= idea %></li>
+                          <% }) %>
+                        </ul>
+                      <% } else { %>
+                        <p>저장된 아이디어가 없습니다.</p>
+                      <% } %>
+                    </div>
+                    <div class="soft-card wide-card">
+                      <h3>수동 메모</h3>
+                      <p><%= project.research.manualNotes || '저장된 메모가 없습니다.' %></p>
+                    </div>
+                  </div>
+                <% } else { %>
+                  <div class="empty-card">
+                    <strong>아직 저장된 리서치가 없습니다.</strong>
+                    <p>자동 수집 또는 리서치 저장을 먼저 실행하십시오.</p>
+                  </div>
+                <% } %>
+              </section>
             </article>
 
             <article class="panel-card workflow-panel <%= activeStep === 'script' ? 'active' : '' %>" data-step-panel="script">
@@ -161,7 +227,7 @@
                 <div>
                   <p class="section-tag">Step 3</p>
                   <h2>대본 작성</h2>
-                  <p class="card-copy">자동 초안과 수동 편집을 같은 화면에서 처리합니다.</p>
+                  <p class="card-copy">현재 설정된 영상 길이 기준으로 약 <%= project.settings?.durationMinutes || 10 %>분 분량 대본을 만듭니다.</p>
                 </div>
                 <div class="form-actions">
                   <form action="/projects/<%= project.id %>/bootstrap" method="post">
@@ -171,6 +237,11 @@
                     <button class="dark-button" type="submit">대본 자동 생성</button>
                   </form>
                 </div>
+              </div>
+
+              <div class="info-row">
+                <span class="status-chip">목표 길이 <%= project.settings?.durationMinutes || 10 %>분</span>
+                <span class="status-chip">기본값은 10분</span>
               </div>
 
               <form class="form-grid studio-form" action="/projects/<%= project.id %>/script/manual" method="post">
@@ -319,8 +390,8 @@
                   <strong><%= project.language %></strong>
                 </div>
                 <div class="metric-card">
-                  <span class="metric-label">톤</span>
-                  <strong><%= project.tone %></strong>
+                  <span class="metric-label">길이</span>
+                  <strong><%= project.settings?.durationMinutes || 10 %>분</strong>
                 </div>
               </div>
             </article>

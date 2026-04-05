@@ -48,7 +48,8 @@ export async function runProject(projectId, options = {}) {
       tone: project.tone,
       language: project.language,
       research,
-      customPrompt: project.settings.customPrompt
+      customPrompt: project.settings.customPrompt,
+      durationMinutes: project.settings?.durationMinutes || 10
     });
 
     const baseScenes = project.scenes.length

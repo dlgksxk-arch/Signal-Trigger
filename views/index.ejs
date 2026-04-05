@@ -32,9 +32,9 @@
         <section class="studio-side-card">
           <p class="section-tag">Workflow</p>
           <ul class="studio-side-list">
-            <li>주제 선택</li>
-            <li>소재 수집</li>
-            <li>대본 작성</li>
+            <li>주제 프롬프트 입력</li>
+            <li>소재 자동 수집</li>
+            <li>대본 자동 생성</li>
             <li>장면 편집</li>
             <li>렌더 확인</li>
             <li>업로드 연동</li>
@@ -48,7 +48,7 @@
             <div>
               <p class="section-tag">Studio Dashboard</p>
               <h1>자동 제작 현황</h1>
-              <p class="lead-text">유튜브 스튜디오처럼 좌측 탐색과 중앙 제작 보드를 분리하고, 우리 기능 흐름에 맞는 카드형 작업 화면으로 구성했습니다.</p>
+              <p class="lead-text">좌측은 탐색, 중앙은 실제 작업 카드로 구성했습니다. 프로젝트를 만들면 단계형 편집 화면으로 바로 이동합니다.</p>
             </div>
             <a class="ghost-button" href="/workspace/create">새 제작 시작</a>
           </section>
@@ -81,7 +81,7 @@
                 <div class="action-grid">
                   <a class="action-card" href="/workspace/create">
                     <strong>새 프로젝트 생성</strong>
-                    <p>주제, 톤, 채널, 예약 시간을 먼저 등록합니다.</p>
+                    <p>주제 프롬프트, 영상 길이, 채널, 예약 시간을 먼저 등록합니다.</p>
                   </a>
                   <a class="action-card" href="/workspace/channels">
                     <strong>업로드 채널 연결</strong>
@@ -105,10 +105,11 @@
                     </div>
                   <% } %>
                   <% projects.slice(0, 5).forEach((project) => { %>
+                    <% const projectTitle = (project.topic || '').split(/\r?\n/)[0].slice(0, 60); %>
                     <a class="list-row" href="/projects/<%= project.id %>/topic">
                       <div>
-                        <strong><%= project.topic %></strong>
-                        <p><%= project.language %> · <%= project.tone %> · <%= project.format %></p>
+                        <strong><%= projectTitle %></strong>
+                        <p><%= project.language %> · <%= project.tone %> · <%= project.format %> · 약 <%= project.settings?.durationMinutes || 10 %>분</p>
                       </div>
                       <span class="status-pill <%= project.status %>"><%= project.status %></span>
                     </a>
@@ -129,22 +130,22 @@
                   <div class="timeline-row done">
                     <span class="timeline-bullet"></span>
                     <div>
-                      <strong>기획 입력</strong>
-                      <p>주제, 언어, 톤, 채널, 예약값을 정합니다.</p>
+                      <strong>프롬프트 기반 주제 설정</strong>
+                      <p>짧은 제목이 아니라 원하는 구성과 메시지를 프롬프트로 입력합니다.</p>
                     </div>
                   </div>
                   <div class="timeline-row">
                     <span class="timeline-bullet"></span>
                     <div>
-                      <strong>자동 초안 생성</strong>
-                      <p>트렌드 수집과 대본 생성을 자동으로 처리합니다.</p>
+                      <strong>리서치 저장과 확인</strong>
+                      <p>저장 버튼을 누르면 저장 안내와 현재 저장된 내용이 같이 보입니다.</p>
                     </div>
                   </div>
                   <div class="timeline-row">
                     <span class="timeline-bullet"></span>
                     <div>
-                      <strong>장면과 결과물 확인</strong>
-                      <p>장면 카드, 렌더 결과, 업로드 패키지를 관리합니다.</p>
+                      <strong>영상 길이 기반 대본 생성</strong>
+                      <p>기본은 10분이며, 선택한 길이에 맞춰 자동 대본을 생성합니다.</p>
                     </div>
                   </div>
                 </div>
@@ -158,7 +159,7 @@
             <div>
               <p class="section-tag">Create Studio</p>
               <h1>새 프로젝트 생성</h1>
-              <p class="lead-text">유튜브 스튜디오의 업로드 상세 화면처럼, 입력은 한곳에서 정리하고 이후 단계 화면에서 세부 작업을 이어갑니다.</p>
+              <p class="lead-text">프로젝트를 만들 때 주제 프롬프트와 목표 영상 길이를 먼저 정합니다. 기본 길이는 10분입니다.</p>
             </div>
           </section>
 
@@ -173,9 +174,15 @@
               </div>
 
               <form class="form-grid studio-form" action="/projects" method="post" enctype="multipart/form-data">
-                <label>주제
-                  <input type="text" name="topic" placeholder="예: 수면의 질을 높이는 습관" required />
+                <label class="wide">주제 프롬프트
+                  <textarea
+                    name="topic"
+                    class="prompt-textarea"
+                    placeholder="예: BBC 헤드라인 스타일로 오늘 가장 중요한 국제 이슈 3개를 정리하고, 각 이슈의 배경과 앞으로의 영향을 쉽게 설명해 주세요."
+                    required
+                  ></textarea>
                 </label>
+
                 <label>언어
                   <select name="language">
                     <option value="ko">한국어</option>
@@ -183,15 +190,26 @@
                     <option value="ja">일본어</option>
                   </select>
                 </label>
+
                 <label>톤
                   <input type="text" name="tone" value="정보형" />
                 </label>
+
                 <label>화면 비율
                   <select name="format">
                     <option value="portrait">세로형 9:16</option>
                     <option value="landscape">가로형 16:9</option>
                   </select>
                 </label>
+
+                <label>영상 길이
+                  <select name="durationMinutes">
+                    <% durationOptions.forEach((minutes) => { %>
+                      <option value="<%= minutes %>" <%= minutes === 10 ? 'selected' : '' %>><%= minutes %>분</option>
+                    <% }) %>
+                  </select>
+                </label>
+
                 <label>채널
                   <select name="channelId">
                     <option value="">선택 안 함</option>
@@ -200,21 +218,27 @@
                     <% }) %>
                   </select>
                 </label>
+
                 <label>예약 시작
                   <input type="datetime-local" name="scheduledAt" />
                 </label>
+
                 <label class="wide">추가 지시
-                  <input type="text" name="customPrompt" placeholder="예: 차분하고 신뢰감 있게" />
+                  <input type="text" name="customPrompt" placeholder="예: 차분하고 신뢰감 있게, 너무 자극적인 표현은 제외" />
                 </label>
+
                 <label>스타일 레퍼런스
                   <input type="file" name="styleReference" accept="image/*" />
                 </label>
+
                 <label>BGM 파일
                   <input type="file" name="bgmFile" accept="audio/*" />
                 </label>
+
                 <label class="wide">워터마크
                   <input type="file" name="watermarkFile" accept="image/*" />
                 </label>
+
                 <div class="wide form-actions">
                   <button type="submit">프로젝트 시작</button>
                 </div>
@@ -293,7 +317,7 @@
             <div>
               <p class="section-tag">Project Library</p>
               <h1>프로젝트 보관함</h1>
-              <p class="lead-text">콘텐츠 목록처럼 프로젝트를 다시 열고, 각 단계 상세 화면으로 이동합니다.</p>
+              <p class="lead-text">생성한 프로젝트를 다시 열어 단계형 편집 화면으로 이동합니다.</p>
             </div>
           </section>
 
@@ -313,10 +337,11 @@
                   </div>
                 <% } %>
                 <% projects.forEach((project) => { %>
+                  <% const projectTitle = (project.topic || '').split(/\r?\n/)[0].slice(0, 60); %>
                   <a class="list-row large-row" href="/projects/<%= project.id %>/topic">
                     <div>
-                      <strong><%= project.topic %></strong>
-                      <p><%= project.language %> · <%= project.tone %> · <%= project.format %></p>
+                      <strong><%= projectTitle %></strong>
+                      <p><%= project.language %> · <%= project.tone %> · <%= project.format %> · 약 <%= project.settings?.durationMinutes || 10 %>분</p>
                     </div>
                     <span class="status-pill <%= project.status %>"><%= project.status %></span>
                   </a>
