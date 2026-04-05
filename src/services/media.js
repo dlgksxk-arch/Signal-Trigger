@@ -25,13 +25,70 @@ function hashSeed(input) {
   return Math.abs(hash);
 }
 
+function getImageGenerationConfig(format) {
+  return {
+    width: format === "landscape" ? 1920 : 1080,
+    height: format === "landscape" ? 1080 : 1920,
+    openAiSize: format === "landscape" ? "1536x1024" : "1024x1536"
+  };
+}
+
+async function generateWithOpenAI({ outputPath, scene, format }) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return false;
+  }
+
+  const imageBaseUrl = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
+  const imageModel = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1.5";
+  const imageQuality = process.env.OPENAI_IMAGE_QUALITY || "medium";
+  const { width, height, openAiSize } = getImageGenerationConfig(format);
+
+  const response = await fetch(`${imageBaseUrl}/images/generations`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: imageModel,
+      prompt: scene.imagePrompt,
+      size: openAiSize,
+      quality: imageQuality,
+      n: 1
+    })
+  });
+
+  if (!response.ok) {
+    return false;
+  }
+
+  const data = await response.json();
+  const imageBase64 = data?.data?.[0]?.b64_json;
+  if (!imageBase64) {
+    return false;
+  }
+
+  const buffer = Buffer.from(imageBase64, "base64");
+  await sharp(buffer).resize(width, height, { fit: "cover" }).png().toFile(outputPath);
+  return true;
+}
+
 export async function generateSceneImage({ outputPath, scene, styleProfile, format }) {
   ensureDir(path.dirname(outputPath));
 
-  const width = format === "landscape" ? 1920 : 1080;
-  const height = format === "landscape" ? 1080 : 1920;
+  const { width, height } = getImageGenerationConfig(format);
   const seed = hashSeed(scene.variationSeed);
   const useRemote = (process.env.ENABLE_POLLINATIONS_IMAGE || "true") === "true";
+
+  try {
+    const usedOpenAi = await generateWithOpenAI({ outputPath, scene, format });
+    if (usedOpenAi) {
+      return outputPath;
+    }
+  } catch {
+    // fallback below
+  }
 
   if (useRemote) {
     try {
