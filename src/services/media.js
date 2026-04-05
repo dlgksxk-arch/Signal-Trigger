@@ -40,7 +40,7 @@ async function generateWithOpenAI({ outputPath, scene, format }) {
   }
 
   const imageBaseUrl = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
-  const imageModel = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1.5";
+  const imageModel = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
   const imageQuality = process.env.OPENAI_IMAGE_QUALITY || "medium";
   const { width, height, openAiSize } = getImageGenerationConfig(format);
 
@@ -212,6 +212,16 @@ function normalizeCopy(text) {
     .trim();
 }
 
+function compactHookCopy(text) {
+  return normalizeCopy(text)
+    .replace(/^(this video|in this video|today|이번 영상에서는|이번 영상은|오늘은)\s*/i, "")
+    .replace(/^(we explain|we break down|we connect|지금부터|핵심은)\s*/i, "")
+    .replace(/\b(because|and|that|which)\b.*$/i, "")
+    .replace(/(입니다|됩니다|합니다)\.?$/g, "")
+    .replace(/[,:;]+$/g, "")
+    .trim();
+}
+
 function hookScore(text) {
   const value = normalizeCopy(text);
   if (!value) {
@@ -238,14 +248,15 @@ function pickThumbnailText({ script, scenes, title }) {
   const sourceText = [script, ...(scenes ?? []).map((scene) => scene.narration)].join(" ");
   const parts = sourceText
     .split(/(?<=[.!?。！？])\s+|\n+/)
-    .map((item) => normalizeCopy(item))
-    .filter((item) => item.length >= 10);
+    .map((item) => compactHookCopy(item))
+    .filter((item) => item.length >= 6)
+    .filter((item) => item.length <= 42);
 
   sentenceCandidates.push(...parts);
   const best = sentenceCandidates
     .sort((left, right) => hookScore(right) - hookScore(left))[0];
 
-  return best || normalizeCopy(title) || "WHAT CHANGES NEXT?";
+  return best || compactHookCopy(title) || "WHAT CHANGES NEXT?";
 }
 
 function pickThumbnailImage({ imagePath, scenes }) {
@@ -257,9 +268,9 @@ function pickThumbnailImage({ imagePath, scenes }) {
 }
 
 function wrapThumbnailText(text, format) {
-  const source = normalizeCopy(text);
-  const maxChars = format === "landscape" ? 16 : 12;
-  const maxLines = 3;
+  const source = compactHookCopy(text);
+  const maxChars = format === "landscape" ? 12 : 10;
+  const maxLines = 2;
   const words = source.includes(" ") ? source.split(/\s+/) : source.split("");
   const lines = [];
   let current = "";
@@ -278,7 +289,11 @@ function wrapThumbnailText(text, format) {
     lines.push(current);
   }
 
-  return lines.slice(0, maxLines).map((line) => line.toUpperCase());
+  return lines
+    .slice(0, maxLines)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => /[a-z]/i.test(line) ? line.toUpperCase() : line);
 }
 
 function secondsToSrt(seconds) {
@@ -299,13 +314,13 @@ export async function buildThumbnail({ imagePath, title, outputPath, format, sce
   const lines = wrapThumbnailText(hookText, format);
   const baseX = format === "landscape" ? 52 : 46;
   const baseY = format === "landscape" ? Math.round(height * 0.66) : Math.round(height * 0.7);
-  const lineHeight = format === "landscape" ? 92 : 86;
-  const fontSize = format === "landscape" ? 74 : 68;
-  const fills = ["#ffffff", "#60a5fa", "#facc15"];
+  const lineHeight = format === "landscape" ? 108 : 94;
+  const fontSize = format === "landscape" ? 88 : 74;
+  const fills = ["#ffffff", "#facc15"];
   const textSvg = lines.map((line, index) => {
     const y = baseY + (index * lineHeight);
     const fill = fills[index] || "#ffffff";
-    return `<text x="${baseX}" y="${y}" font-size="${fontSize}" fill="${fill}" stroke="#101114" stroke-width="18" paint-order="stroke" font-family="Arial" font-weight="900">${escapeXml(line)}</text>`;
+    return `<text x="${baseX}" y="${y}" font-size="${fontSize}" fill="${fill}" stroke="#0b0c0f" stroke-width="22" paint-order="stroke" font-family="Arial" font-weight="900" letter-spacing="-1">${escapeXml(line)}</text>`;
   }).join("");
 
   const overlay = Buffer.from(`
@@ -318,7 +333,7 @@ export async function buildThumbnail({ imagePath, title, outputPath, format, sce
         </linearGradient>
       </defs>
       <rect x="0" y="0" width="${width}" height="${height}" fill="url(#shade)" />
-      <rect x="${baseX - 18}" y="${baseY - fontSize}" width="${format === "landscape" ? width * 0.62 : width * 0.78}" height="${lineHeight * Math.max(lines.length, 1) + 36}" rx="28" fill="rgba(0,0,0,0.28)" />
+      <rect x="${baseX - 20}" y="${baseY - fontSize}" width="${format === "landscape" ? width * 0.54 : width * 0.76}" height="${lineHeight * Math.max(lines.length, 1) + 28}" rx="26" fill="rgba(0,0,0,0.18)" />
       ${textSvg}
     </svg>
   `);
@@ -328,6 +343,57 @@ export async function buildThumbnail({ imagePath, title, outputPath, format, sce
     .composite([{ input: overlay }])
     .jpeg({ quality: 90 })
     .toFile(outputPath);
+
+  return outputPath;
+}
+
+function getAnimatedClipMotion(index) {
+  const motions = [
+    {
+      zoom: "min(zoom+0.00045,1.14)",
+      x: "iw/2-(iw/zoom/2)+sin(on/18)*28",
+      y: "ih/2-(ih/zoom/2)+cos(on/24)*16"
+    },
+    {
+      zoom: "min(zoom+0.00038,1.12)",
+      x: "iw/2-(iw/zoom/2)-on*0.22",
+      y: "ih/2-(ih/zoom/2)+sin(on/26)*20"
+    },
+    {
+      zoom: "if(lte(on,45),1.08,max(1.01,zoom-0.00028))",
+      x: "iw/2-(iw/zoom/2)+on*0.18",
+      y: "ih/2-(ih/zoom/2)-cos(on/20)*18"
+    }
+  ];
+
+  return motions[index % motions.length];
+}
+
+async function buildAnimatedSceneClip({ imagePath, durationSec, outputPath, format, index }) {
+  ensureDir(path.dirname(outputPath));
+  const width = format === "landscape" ? 1920 : 1080;
+  const height = format === "landscape" ? 1080 : 1920;
+  const sourceWidth = Math.round(width * 1.18);
+  const sourceHeight = Math.round(height * 1.18);
+  const fps = 30;
+  const frameCount = Math.max(1, Math.round(durationSec * fps));
+  const motion = getAnimatedClipMotion(index);
+
+  await runFfmpeg([
+    "-y",
+    "-loop", "1",
+    "-i", imagePath,
+    "-vf",
+    [
+      `scale=${sourceWidth}:${sourceHeight}`,
+      `zoompan=z='${motion.zoom}':x='${motion.x}':y='${motion.y}':d=${frameCount}:s=${width}x${height}:fps=${fps}`,
+      "format=yuv420p"
+    ].join(","),
+    "-t", String(durationSec),
+    "-r", String(fps),
+    "-pix_fmt", "yuv420p",
+    outputPath
+  ]);
 
   return outputPath;
 }
@@ -343,21 +409,29 @@ export async function renderVideo({
   format
 }) {
   ensureDir(path.dirname(outputPath));
-  const concatPath = path.join(path.dirname(outputPath), "scenes.txt");
   const durations = scenes.map((scene) => scene.durationSec);
-  const concatLines = [];
+  const clipsDir = path.join(path.dirname(outputPath), "clips");
+  ensureDir(clipsDir);
 
-  sceneImages.forEach((imagePath, index) => {
-    concatLines.push(`file '${toPosix(imagePath)}'`);
-    concatLines.push(`duration ${durations[index]}`);
+  const clipPaths = [];
+  for (let index = 0; index < sceneImages.length; index += 1) {
+    const clipPath = path.join(clipsDir, `scene-${String(index + 1).padStart(2, "0")}.mp4`);
+    await buildAnimatedSceneClip({
+      imagePath: sceneImages[index],
+      durationSec: durations[index],
+      outputPath: clipPath,
+      format,
+      index
+    });
+    clipPaths.push(clipPath);
+  }
+
+  const args = ["-y"];
+  clipPaths.forEach((clipPath) => {
+    args.push("-i", clipPath);
   });
-
-  concatLines.push(`file '${toPosix(sceneImages[sceneImages.length - 1])}'`);
-  fs.writeFileSync(concatPath, concatLines.join("\n"), "utf8");
-
-  const args = ["-y", "-f", "concat", "-safe", "0", "-i", concatPath];
   const inputIndices = { narration: null, bgm: null, watermark: null };
-  let inputCount = 1;
+  let inputCount = clipPaths.length;
 
   if (narrationPath && fs.existsSync(narrationPath)) {
     args.push("-i", narrationPath);
@@ -379,12 +453,27 @@ export async function renderVideo({
 
   const width = format === "landscape" ? 1920 : 1080;
   const height = format === "landscape" ? 1080 : 1920;
-  const motionWidth = width + Math.round(width * 0.08);
-  const motionHeight = height + Math.round(height * 0.08);
-  const motionX = `(in_w-out_w)/2+sin(t*0.45)*${Math.round(width * 0.025)}`;
-  const motionY = `(in_h-out_h)/2+cos(t*0.33)*${Math.round(height * 0.02)}`;
-  const filters = [`[0:v]scale=${motionWidth}:${motionHeight},crop=${width}:${height}:${motionX}:${motionY},setsar=1[v0]`];
+  const filters = [];
   let currentVideo = "v0";
+
+  if (clipPaths.length === 1) {
+    filters.push(`[0:v]scale=${width}:${height},setsar=1[v0]`);
+  } else {
+    filters.push(`[0:v]scale=${width}:${height},setsar=1[v0]`);
+    const transitions = ["fade", "smoothleft", "smoothright", "circleopen"];
+    let offset = durations[0];
+
+    for (let index = 1; index < clipPaths.length; index += 1) {
+      const previousLabel = `v${index - 1}`;
+      const nextLabel = `v${index}`;
+      const transitionDuration = Math.min(0.45, Math.max(0.24, durations[index - 1] * 0.08));
+      offset = Math.max(0, offset - transitionDuration);
+      filters.push(`[${index}:v]scale=${width}:${height},setsar=1[s${index}]`);
+      filters.push(`[${previousLabel}][s${index}]xfade=transition=${transitions[(index - 1) % transitions.length]}:duration=${transitionDuration}:offset=${offset}[${nextLabel}]`);
+      offset += durations[index];
+      currentVideo = nextLabel;
+    }
+  }
 
   if (inputIndices.watermark !== null) {
     filters.push(`[${inputIndices.watermark}:v]scale=220:-1[wm]`);
