@@ -43,7 +43,7 @@
       </aside>
 
       <main class="studio-main">
-        <% if (noticeMessage) { %>
+        <% if (typeof noticeMessage !== 'undefined' && noticeMessage) { %>
           <section class="notice-banner">
             <strong>알림</strong>
             <span><%= noticeMessage %></span>
