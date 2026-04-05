@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title><%= project.topic %> - <%= versionLabel %></title>
     <link rel="stylesheet" href="/public/app.css" />
+    <script src="/public/app.js" defer></script>
   </head>
   <body>
     <div class="dashboard-shell">
@@ -14,30 +15,38 @@
         </div>
 
         <nav class="sidebar-menu compact-menu workflow-rail-menu">
-          <a class="menu-item compact-item" href="/" title="Dashboard">
+          <a class="menu-item compact-item" href="/" title="대시보드">
             <span class="menu-dot"></span>
-            <span class="compact-text">Home</span>
+            <span class="compact-text">홈</span>
           </a>
           <% steps.forEach((step) => { %>
-            <a class="menu-item workflow-link compact-item <%= step.active ? 'active' : '' %>" href="<%= step.href %>" title="<%= step.label %>">
+            <a
+              class="menu-item workflow-link compact-item <%= step.active ? 'active' : '' %>"
+              href="<%= step.href %>"
+              title="<%= step.label %>"
+              data-workflow-link
+              data-step-target="<%= step.key %>"
+              data-step-label="<%= step.label %>"
+            >
               <span class="menu-dot <%= step.done ? 'done' : '' %>"></span>
-              <span class="compact-text"><%= step.label.split('. ')[0] %></span>
+              <span class="workflow-step-number"><%= step.label.split('. ')[0] %></span>
+              <span class="compact-text"><%= step.shortLabel %></span>
             </a>
           <% }) %>
         </nav>
 
         <section class="sidebar-note compact-note">
-          <p class="eyebrow">현재 상태</p>
+          <p class="eyebrow">현재</p>
           <ul class="sidebar-list">
             <li>상태: <strong><%= project.status %></strong></li>
             <li>예약: <strong><%= project.scheduled_at || '없음' %></strong></li>
-            <li>채널: <strong><%= project.channel_name || '미지정' %></strong></li>
+            <li>채널: <strong><%= project.channel_name || '미선택' %></strong></li>
             <li>업로드: <strong><%= project.output?.uploadStatus || 'pending' %></strong></li>
           </ul>
         </section>
       </aside>
 
-      <main class="dashboard-main">
+      <main class="dashboard-main workflow-page" data-active-step="<%= activeStep %>">
         <section class="hero-board detail-hero">
           <div>
             <a class="back-link" href="/">목록으로</a>
@@ -57,224 +66,236 @@
         </section>
 
         <section class="detail-grid">
-          <section class="detail-main">
-            <% if (activeStep === 'topic') { %>
-              <article class="dashboard-card">
-                <div class="card-header">
-                  <div>
-                    <p class="eyebrow">1단계</p>
-                    <h2>주제 설정</h2>
-                  </div>
-                  <span class="pill">Manual</span>
+          <section class="detail-main workflow-panels">
+            <article
+              class="dashboard-card workflow-panel <%= activeStep === 'topic' ? 'active' : '' %>"
+              data-step-panel="topic"
+            >
+              <div class="card-header">
+                <div>
+                  <p class="eyebrow">1단계</p>
+                  <h2>주제 설정</h2>
                 </div>
+                <span class="pill">수동 조정</span>
+              </div>
 
-                <form class="form-grid dashboard-form" action="/projects/<%= project.id %>/settings" method="post">
-                  <label>주제
-                    <input type="text" name="topic" value="<%= project.topic %>" />
+              <form class="form-grid dashboard-form" action="/projects/<%= project.id %>/settings" method="post">
+                <label>주제
+                  <input type="text" name="topic" value="<%= project.topic %>" />
+                </label>
+
+                <label>언어
+                  <select name="language">
+                    <option value="ko" <%= project.language === 'ko' ? 'selected' : '' %>>한국어</option>
+                    <option value="en" <%= project.language === 'en' ? 'selected' : '' %>>영어</option>
+                    <option value="ja" <%= project.language === 'ja' ? 'selected' : '' %>>일본어</option>
+                  </select>
+                </label>
+
+                <label>톤
+                  <input type="text" name="tone" value="<%= project.tone %>" />
+                </label>
+
+                <label>화면 비율
+                  <select name="format">
+                    <option value="portrait" <%= project.format === 'portrait' ? 'selected' : '' %>>세로형 9:16</option>
+                    <option value="landscape" <%= project.format === 'landscape' ? 'selected' : '' %>>가로형 16:9</option>
+                  </select>
+                </label>
+
+                <label>채널
+                  <select name="channelId">
+                    <option value="">선택 안 함</option>
+                    <% channels.forEach((channel) => { %>
+                      <option value="<%= channel.id %>" <%= project.channel_id === channel.id ? 'selected' : '' %>><%= channel.name %></option>
+                    <% }) %>
+                  </select>
+                </label>
+
+                <label>예약 시작
+                  <input type="datetime-local" name="scheduledAt" value="<%= project.scheduled_at ? project.scheduled_at.slice(0, 16) : '' %>" />
+                </label>
+
+                <label class="wide">추가 지시
+                  <input type="text" name="customPrompt" value="<%= project.settings?.customPrompt || '' %>" />
+                </label>
+
+                <div class="wide form-actions">
+                  <button type="submit">주제 저장</button>
+                </div>
+              </form>
+            </article>
+
+            <article
+              class="dashboard-card workflow-panel <%= activeStep === 'research' ? 'active' : '' %>"
+              data-step-panel="research"
+            >
+              <div class="card-header">
+                <div>
+                  <p class="eyebrow">2단계</p>
+                  <h2>소재 발굴</h2>
+                </div>
+                <form action="/projects/<%= project.id %>/research/auto" method="post">
+                  <button type="submit">자동 수집</button>
+                </form>
+              </div>
+
+              <form class="form-grid dashboard-form" action="/projects/<%= project.id %>/research/manual" method="post">
+                <label class="wide">요약
+                  <textarea name="summary"><%= researchSummaryText %></textarea>
+                </label>
+
+                <label class="wide">아이디어 목록
+                  <textarea name="ideas"><%= researchIdeasText %></textarea>
+                </label>
+
+                <label class="wide">수동 메모
+                  <textarea name="manualNotes"><%= researchNotesText %></textarea>
+                </label>
+
+                <div class="wide form-actions">
+                  <button type="submit">리서치 저장</button>
+                </div>
+              </form>
+            </article>
+
+            <article
+              class="dashboard-card workflow-panel <%= activeStep === 'script' ? 'active' : '' %>"
+              data-step-panel="script"
+            >
+              <div class="card-header">
+                <div>
+                  <p class="eyebrow">3단계</p>
+                  <h2>대본 작성</h2>
+                </div>
+                <form action="/projects/<%= project.id %>/script/auto" method="post">
+                  <button type="submit">대본 자동 생성</button>
+                </form>
+              </div>
+
+              <form class="form-grid dashboard-form" action="/projects/<%= project.id %>/script/manual" method="post">
+                <label class="wide">대본
+                  <textarea name="script" class="tall-textarea"><%= project.script_text || '' %></textarea>
+                </label>
+
+                <div class="wide form-actions">
+                  <button type="submit">대본 저장</button>
+                </div>
+              </form>
+            </article>
+
+            <article
+              class="dashboard-card workflow-panel <%= activeStep === 'scenes' ? 'active' : '' %>"
+              data-step-panel="scenes"
+            >
+              <div class="card-header">
+                <div>
+                  <p class="eyebrow">4단계</p>
+                  <h2>장면 편집</h2>
+                </div>
+                <form action="/projects/<%= project.id %>/run" method="post">
+                  <button type="submit">장면 생성 또는 갱신</button>
+                </form>
+              </div>
+
+              <div class="scene-grid">
+                <% if (!project.scenes.length) { %>
+                  <div class="empty-board">
+                    <strong>아직 장면이 없습니다.</strong>
+                    <p>전체 렌더를 실행하면 장면과 이미지가 생성됩니다.</p>
+                  </div>
+                <% } %>
+
+                <% project.scenes.forEach((scene, index) => { %>
+                  <article class="scene-card">
+                    <% if (scene.imagePath) { %>
+                      <img src="<%= scene.imagePath.replace(/^.*?storage/, '/storage') %>" alt="<%= scene.title %>" />
+                    <% } %>
+                    <h3><%= scene.title %></h3>
+                    <p><%= scene.narration %></p>
+                    <small><%= scene.imagePrompt %></small>
+                    <form action="/projects/<%= project.id %>/scenes/<%= index %>/regenerate" method="post">
+                      <button type="submit">이 장면만 다시 생성</button>
+                    </form>
+                  </article>
+                <% }) %>
+              </div>
+            </article>
+
+            <article
+              class="dashboard-card workflow-panel <%= activeStep === 'render' ? 'active' : '' %>"
+              data-step-panel="render"
+            >
+              <div class="card-header">
+                <div>
+                  <p class="eyebrow">5단계</p>
+                  <h2>렌더 결과</h2>
+                </div>
+                <form action="/projects/<%= project.id %>/run" method="post">
+                  <button type="submit">전체 다시 렌더</button>
+                </form>
+              </div>
+
+              <div class="link-grid">
+                <% if (project.output?.videoPath) { %>
+                  <a class="result-link" href="<%= project.output.videoPath.replace(/^.*?storage/, '/storage') %>" target="_blank">완성 영상 열기</a>
+                <% } %>
+                <% if (project.output?.thumbnailPath) { %>
+                  <a class="result-link" href="<%= project.output.thumbnailPath.replace(/^.*?storage/, '/storage') %>" target="_blank">썸네일 열기</a>
+                <% } %>
+                <% if (project.output?.subtitlesPath) { %>
+                  <a class="result-link" href="<%= project.output.subtitlesPath.replace(/^.*?storage/, '/storage') %>" target="_blank">자막 열기</a>
+                <% } %>
+                <% if (!project.output?.videoPath && !project.output?.thumbnailPath && !project.output?.subtitlesPath) { %>
+                  <div class="empty-board">
+                    <strong>아직 렌더 결과가 없습니다.</strong>
+                    <p>전체 렌더 실행 후 영상, 썸네일, 자막을 확인할 수 있습니다.</p>
+                  </div>
+                <% } %>
+              </div>
+            </article>
+
+            <article
+              class="dashboard-card stack-card workflow-panel <%= activeStep === 'publish' ? 'active' : '' %>"
+              data-step-panel="publish"
+            >
+              <div class="card-header">
+                <div>
+                  <p class="eyebrow">6단계</p>
+                  <h2>업로드 및 연동</h2>
+                </div>
+              </div>
+
+              <section class="soft-panel">
+                <h3>Google Vids 적용 방식</h3>
+                <% googleVidsNotes.forEach((note) => { %>
+                  <p><%= note %></p>
+                <% }) %>
+                <a class="result-link" href="/api/projects/<%= project.id %>/google-vids-package" target="_blank">Google Vids용 자산 패키지 JSON 열기</a>
+              </section>
+
+              <section class="soft-panel">
+                <h3>GitHub 연결 상태</h3>
+                <p>로컬 Git 준비: <strong><%= githubStatus.localGitReady ? '완료' : '미완료' %></strong></p>
+                <p>원격 GitHub 연결: <strong><%= githubStatus.remoteConnected ? '완료' : '대기' %></strong></p>
+                <p><%= githubStatus.note %></p>
+              </section>
+
+              <section class="soft-panel">
+                <h3>도움말 챗봇</h3>
+                <form class="form-grid single-form" action="/projects/<%= project.id %>/help" method="post">
+                  <label>질문
+                    <input type="text" name="question" placeholder="예: 업로드 전에 확인할 것은?" />
                   </label>
-
-                  <label>언어
-                    <select name="language">
-                      <option value="ko" <%= project.language === 'ko' ? 'selected' : '' %>>한국어</option>
-                      <option value="en" <%= project.language === 'en' ? 'selected' : '' %>>영어</option>
-                      <option value="ja" <%= project.language === 'ja' ? 'selected' : '' %>>일본어</option>
-                    </select>
-                  </label>
-
-                  <label>톤
-                    <input type="text" name="tone" value="<%= project.tone %>" />
-                  </label>
-
-                  <label>화면 비율
-                    <select name="format">
-                      <option value="portrait" <%= project.format === 'portrait' ? 'selected' : '' %>>세로형 9:16</option>
-                      <option value="landscape" <%= project.format === 'landscape' ? 'selected' : '' %>>가로형 16:9</option>
-                    </select>
-                  </label>
-
-                  <label>채널
-                    <select name="channelId">
-                      <option value="">선택 안 함</option>
-                      <% channels.forEach((channel) => { %>
-                        <option value="<%= channel.id %>" <%= project.channel_id === channel.id ? 'selected' : '' %>><%= channel.name %></option>
-                      <% }) %>
-                    </select>
-                  </label>
-
-                  <label>예약 시각
-                    <input type="datetime-local" name="scheduledAt" value="<%= project.scheduled_at ? project.scheduled_at.slice(0, 16) : '' %>" />
-                  </label>
-
-                  <label class="wide">추가 지시
-                    <input type="text" name="customPrompt" value="<%= project.settings?.customPrompt || '' %>" />
-                  </label>
-
-                  <div class="wide form-actions">
-                    <button type="submit">주제 저장</button>
+                  <div class="form-actions">
+                    <button type="submit">질문하기</button>
                   </div>
                 </form>
-              </article>
-            <% } %>
-
-            <% if (activeStep === 'research') { %>
-              <article class="dashboard-card">
-                <div class="card-header">
-                  <div>
-                    <p class="eyebrow">2단계</p>
-                    <h2>소재 발굴</h2>
-                  </div>
-                  <form action="/projects/<%= project.id %>/research/auto" method="post">
-                    <button type="submit">자동 수집</button>
-                  </form>
-                </div>
-
-                <form class="form-grid dashboard-form" action="/projects/<%= project.id %>/research/manual" method="post">
-                  <label class="wide">요약
-                    <textarea name="summary"><%= researchSummaryText %></textarea>
-                  </label>
-
-                  <label class="wide">키워드 목록
-                    <textarea name="ideas"><%= researchIdeasText %></textarea>
-                  </label>
-
-                  <label class="wide">수동 메모
-                    <textarea name="manualNotes"><%= researchNotesText %></textarea>
-                  </label>
-
-                  <div class="wide form-actions">
-                    <button type="submit">리서치 저장</button>
-                  </div>
-                </form>
-              </article>
-            <% } %>
-
-            <% if (activeStep === 'script') { %>
-              <article class="dashboard-card">
-                <div class="card-header">
-                  <div>
-                    <p class="eyebrow">3단계</p>
-                    <h2>대본 작성</h2>
-                  </div>
-                  <form action="/projects/<%= project.id %>/script/auto" method="post">
-                    <button type="submit">대본 자동 생성</button>
-                  </form>
-                </div>
-
-                <form class="form-grid dashboard-form" action="/projects/<%= project.id %>/script/manual" method="post">
-                  <label class="wide">대본
-                    <textarea name="script" class="tall-textarea"><%= project.script_text || '' %></textarea>
-                  </label>
-
-                  <div class="wide form-actions">
-                    <button type="submit">대본 저장</button>
-                  </div>
-                </form>
-              </article>
-            <% } %>
-
-            <% if (activeStep === 'scenes') { %>
-              <article class="dashboard-card">
-                <div class="card-header">
-                  <div>
-                    <p class="eyebrow">4단계</p>
-                    <h2>장면 편집</h2>
-                  </div>
-                  <form action="/projects/<%= project.id %>/run" method="post">
-                    <button type="submit">장면 생성 또는 갱신</button>
-                  </form>
-                </div>
-
-                <div class="scene-grid">
-                  <% if (!project.scenes.length) { %>
-                    <div class="empty-board">
-                      <strong>아직 장면이 없습니다.</strong>
-                      <p>렌더 실행으로 장면과 영상 자산을 먼저 생성해 주세요.</p>
-                    </div>
-                  <% } %>
-
-                  <% project.scenes.forEach((scene, index) => { %>
-                    <article class="scene-card">
-                      <% if (scene.imagePath) { %>
-                        <img src="<%= scene.imagePath.replace(/^.*?storage/, '/storage') %>" alt="<%= scene.title %>" />
-                      <% } %>
-                      <h3><%= scene.title %></h3>
-                      <p><%= scene.narration %></p>
-                      <small><%= scene.imagePrompt %></small>
-                      <form action="/projects/<%= project.id %>/scenes/<%= index %>/regenerate" method="post">
-                        <button type="submit">이 장면만 재생성</button>
-                      </form>
-                    </article>
-                  <% }) %>
-                </div>
-              </article>
-            <% } %>
-
-            <% if (activeStep === 'render') { %>
-              <article class="dashboard-card">
-                <div class="card-header">
-                  <div>
-                    <p class="eyebrow">5단계</p>
-                    <h2>렌더링 결과</h2>
-                  </div>
-                  <form action="/projects/<%= project.id %>/run" method="post">
-                    <button type="submit">전체 다시 렌더</button>
-                  </form>
-                </div>
-
-                <div class="link-grid">
-                  <% if (project.output?.videoPath) { %>
-                    <a class="result-link" href="<%= project.output.videoPath.replace(/^.*?storage/, '/storage') %>" target="_blank">완성 영상 열기</a>
-                  <% } %>
-                  <% if (project.output?.thumbnailPath) { %>
-                    <a class="result-link" href="<%= project.output.thumbnailPath.replace(/^.*?storage/, '/storage') %>" target="_blank">썸네일 열기</a>
-                  <% } %>
-                  <% if (project.output?.subtitlesPath) { %>
-                    <a class="result-link" href="<%= project.output.subtitlesPath.replace(/^.*?storage/, '/storage') %>" target="_blank">자막 열기</a>
-                  <% } %>
-                </div>
-              </article>
-            <% } %>
-
-            <% if (activeStep === 'publish') { %>
-              <article class="dashboard-card stack-card">
-                <div class="card-header">
-                  <div>
-                    <p class="eyebrow">6단계</p>
-                    <h2>업로드 및 연동</h2>
-                  </div>
-                </div>
-
-                <section class="soft-panel">
-                  <h3>Google Vids 적용 방법</h3>
-                  <% googleVidsNotes.forEach((note) => { %>
-                    <p><%= note %></p>
-                  <% }) %>
-                  <a class="result-link" href="/api/projects/<%= project.id %>/google-vids-package" target="_blank">Google Vids용 자산 패키지 JSON 열기</a>
-                </section>
-
-                <section class="soft-panel">
-                  <h3>GitHub 연결 상태</h3>
-                  <p>로컬 Git 준비: <strong><%= githubStatus.localGitReady ? '완료' : '미완료' %></strong></p>
-                  <p>원격 GitHub 연결: <strong><%= githubStatus.remoteConnected ? '완료' : '대기' %></strong></p>
-                  <p><%= githubStatus.note %></p>
-                </section>
-
-                <section class="soft-panel">
-                  <h3>도움말 챗봇</h3>
-                  <form class="form-grid single-form" action="/projects/<%= project.id %>/help" method="post">
-                    <label>질문
-                      <input type="text" name="question" placeholder="예: 업로드는 언제 되나요?" />
-                    </label>
-                    <div class="form-actions">
-                      <button type="submit">질문하기</button>
-                    </div>
-                  </form>
-                  <% if (typeof helpAnswer !== 'undefined') { %>
-                    <p class="help-answer"><%= helpAnswer %></p>
-                  <% } %>
-                </section>
-              </article>
-            <% } %>
+                <% if (typeof helpAnswer !== 'undefined') { %>
+                  <p class="help-answer"><%= helpAnswer %></p>
+                <% } %>
+              </section>
+            </article>
           </section>
 
           <aside class="detail-side">
@@ -293,7 +314,7 @@
                 </div>
                 <div class="summary-block">
                   <span class="summary-label">현재 단계</span>
-                  <strong><%= steps.find((item) => item.active)?.label || '1. 주제 설정' %></strong>
+                  <strong data-current-step-label><%= steps.find((item) => item.active)?.label || '1. 주제 설정' %></strong>
                 </div>
                 <div class="summary-block">
                   <span class="summary-label">장면 수</span>

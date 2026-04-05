@@ -421,6 +421,7 @@ function buildWorkflowSteps(project, activeStep) {
   return workflowOrder.map((step) => ({
     key: step,
     label: stepLabel(step),
+    shortLabel: stepShortLabel(step),
     href: `/projects/${project.id}?step=${step}`,
     active: activeStep === step,
     done: statusMap[step]
@@ -435,6 +436,19 @@ function stepLabel(step) {
     scenes: "4. 장면 편집",
     render: "5. 렌더링",
     publish: "6. 업로드"
+  };
+
+  return labels[step];
+}
+
+function stepShortLabel(step) {
+  const labels = {
+    topic: "주제",
+    research: "리서치",
+    script: "대본",
+    scenes: "장면",
+    render: "렌더",
+    publish: "업로드"
   };
 
   return labels[step];

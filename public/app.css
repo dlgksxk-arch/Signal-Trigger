@@ -173,11 +173,11 @@ p {
 
 .compact-item {
   width: 84px;
-  min-height: 64px;
+  min-height: 78px;
   flex-direction: column;
   justify-content: center;
-  gap: 8px;
-  padding: 10px 6px;
+  gap: 6px;
+  padding: 12px 6px;
   border: 1px solid rgba(44, 59, 54, 0.05);
   background: rgba(255, 255, 255, 0.44);
 }
@@ -189,8 +189,9 @@ p {
 
 .compact-text {
   font-size: 11px;
-  line-height: 1;
+  line-height: 1.2;
   letter-spacing: 0.02em;
+  text-align: center;
 }
 
 .menu-dot {
@@ -207,12 +208,18 @@ p {
 }
 
 .workflow-rail-menu .compact-item {
-  min-height: 72px;
+  min-height: 84px;
   border-radius: 22px;
 }
 
 .workflow-rail-menu .compact-text {
   font-weight: 800;
+}
+
+.workflow-step-number {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .sidebar-note {
@@ -311,6 +318,22 @@ p {
   display: grid;
   gap: 22px;
   align-content: start;
+}
+
+.workflow-panels {
+  position: relative;
+}
+
+.workflow-panel {
+  display: none;
+}
+
+.workflow-panel.active {
+  display: block;
+}
+
+.workflow-panel.stack-card.active {
+  display: grid;
 }
 
 .dashboard-card {
