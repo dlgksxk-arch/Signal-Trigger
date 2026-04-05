@@ -21,6 +21,35 @@ function normalizeText(value) {
     .trim();
 }
 
+function getOutputLanguageName(language) {
+  if (language === "en") {
+    return "English";
+  }
+
+  if (language === "ja") {
+    return "Japanese";
+  }
+
+  return "Korean";
+}
+
+function isTextAlignedWithLanguage(text, language) {
+  const value = normalizeText(text);
+  if (!value) {
+    return false;
+  }
+
+  if (language === "en") {
+    return /[a-z]/i.test(value) && !/[가-힣ぁ-ゔァ-ヴー々〆〤一-龯]/.test(value);
+  }
+
+  if (language === "ja") {
+    return /[ぁ-ゔァ-ヴー々〆〤一-龯]/.test(value);
+  }
+
+  return /[가-힣]/.test(value);
+}
+
 function trimTopicTitle(value, maxLength = 72) {
   const normalized = normalizeText(value)
     .replace(/^["'\s]+|["'\s]+$/g, "")
@@ -338,7 +367,7 @@ export async function deriveTopicFromPrompt({
     return fallback || defaultTopicByLanguage(language);
   }
 
-  if (!isInstructionLikeTopic(prompt) && prompt.length <= 80) {
+  if (!isInstructionLikeTopic(prompt) && prompt.length <= 80 && isTextAlignedWithLanguage(prompt, language)) {
     return trimTopicTitle(prompt);
   }
 
@@ -348,7 +377,7 @@ export async function deriveTopicFromPrompt({
   }
 
   const hint = extractTopicHint(prompt, language);
-  if (hint) {
+  if (hint && isTextAlignedWithLanguage(hint, language)) {
     return hint;
   }
 
@@ -674,6 +703,7 @@ export async function generateScript({ topic, tone, language, research, customPr
   const baseUrl = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
   const minutes = getDurationMinutes(durationMinutes);
   const resolvedTopic = trimTopicTitle(topic || "", 100) || defaultTopicByLanguage(language);
+  const outputLanguage = getOutputLanguageName(language);
 
   if (!apiKey) {
     return fallbackScript({ topic: resolvedTopic, tone, language, research, customPrompt, durationMinutes: minutes });
@@ -762,7 +792,7 @@ export async function generateScript({ topic, tone, language, research, customPr
     "- End with a sharp, haunting closing",
     "",
     "Output requirements:",
-    "- Write in natural spoken English for YouTube narration",
+    `- Write in natural spoken ${outputLanguage} for YouTube narration`,
     "- Write as a full script only",
     "- No bullet points inside the script",
     "- No section labels",
@@ -796,7 +826,7 @@ export async function generateScript({ topic, tone, language, research, customPr
 
   const systemPrompt = [
     "You write YouTube longform narration scripts.",
-    "Return only the finished script in natural spoken English.",
+    `Return only the finished script in natural spoken ${outputLanguage}.`,
     "No bullet points. No section labels. No stage directions.",
     "Keep the pacing fast, the wording clear, and the tone emotionally engaging for viewers in their 20s and 30s."
   ].join("\n");
