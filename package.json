@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/server.js",
-    "start": "node src/server.js"
+    "start": "node --watch src/server.js",
+    "start:once": "node src/server.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.4.1",
