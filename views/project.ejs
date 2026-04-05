@@ -42,7 +42,7 @@
                   <strong><%= step.shortLabel %></strong>
                   <span class="workflow-step-status <%= step.statusKey %>"><%= step.statusLabel %></span>
                 </div>
-                <span><%= step.done ? '결과 준비됨' : '다음 작업 대기' %></span>
+                <span><%= step.detail %></span>
               </div>
             </a>
           <% }) %>
@@ -59,7 +59,7 @@
         </section>
       </aside>
 
-      <main class="studio-main workflow-page" data-active-step="<%= activeStep %>">
+      <main class="studio-main workflow-page" data-active-step="<%= activeStep %>" data-auto-refresh="<%= generationView.autoRefresh ? 'true' : 'false' %>">
         <section class="topbar-card">
           <div>
             <a class="back-link" href="/workspace/projects">프로젝트 보관함으로</a>
@@ -85,6 +85,55 @@
             <span><%= noticeMessage %></span>
           </section>
         <% } %>
+
+        <section class="panel-card generation-card">
+          <div class="panel-header">
+            <div>
+              <p class="section-tag">Auto Generation</p>
+              <h2>전체 자동 생성 진행상황</h2>
+              <p class="card-copy"><strong><%= generationView.stateLabel %></strong> · <%= generationView.currentLabel %> · <%= generationView.detail %></p>
+            </div>
+            <div class="form-actions">
+              <% if (generationView.state === 'running' || generationView.state === 'pause_requested') { %>
+                <form action="/projects/<%= project.id %>/automation/pause" method="post">
+                  <button type="submit">일시중지</button>
+                </form>
+              <% } else { %>
+                <form action="/projects/<%= project.id %>/automation/start" method="post">
+                  <button type="submit">전체 자동 생성</button>
+                </form>
+              <% } %>
+
+              <% if (generationView.state === 'paused') { %>
+                <form action="/projects/<%= project.id %>/automation/resume" method="post">
+                  <button class="dark-button" type="submit">재개</button>
+                </form>
+              <% } %>
+
+              <% if (generationView.state !== 'idle') { %>
+                <form action="/projects/<%= project.id %>/automation/reset" method="post">
+                  <button class="dark-button" type="submit">초기화</button>
+                </form>
+              <% } %>
+            </div>
+          </div>
+
+          <div class="generation-progress">
+            <div class="generation-progress-track">
+              <div class="generation-progress-fill <%= generationView.state %>" style="width: <%= generationView.percent %>%"></div>
+            </div>
+            <div class="generation-progress-meta">
+              <span class="status-chip"><%= generationView.percent %>%</span>
+              <span class="status-chip">현재 단계 <%= generationView.currentLabel %></span>
+              <% if (generationView.sceneTotal) { %>
+                <span class="status-chip">장면 <%= generationView.sceneCurrent %>/<%= generationView.sceneTotal %></span>
+              <% } %>
+            </div>
+            <% if (generationView.error) { %>
+              <p class="generation-error"><%= generationView.error %></p>
+            <% } %>
+          </div>
+        </section>
 
         <section class="content-grid editor-grid">
           <section class="content-stack workflow-panels">

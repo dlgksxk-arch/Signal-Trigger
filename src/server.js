@@ -15,7 +15,14 @@ import {
   updateProject,
   uploadsRoot
 } from "./db.js";
-import { askProjectHelp, runProject } from "./pipeline.js";
+import {
+  askProjectHelp,
+  pauseProjectAutomation,
+  resetProjectAutomation,
+  resumeProjectAutomation,
+  runProject,
+  startProjectAutomation
+} from "./pipeline.js";
 import {
   deriveTopicFromPrompt,
   fetchTrendIdeas,
@@ -319,6 +326,26 @@ export function createApp() {
     }
   });
 
+  app.post("/projects/:id/automation/start", (req, res) => {
+    const result = startProjectAutomation(req.params.id);
+    res.redirect(`/projects/${req.params.id}/topic?notice=${result.started ? "automation-started" : "automation-already-running"}`);
+  });
+
+  app.post("/projects/:id/automation/pause", (req, res) => {
+    const result = pauseProjectAutomation(req.params.id);
+    res.redirect(`/projects/${req.params.id}/topic?notice=${result.ok ? "automation-pause-requested" : "automation-not-running"}`);
+  });
+
+  app.post("/projects/:id/automation/resume", (req, res) => {
+    const result = resumeProjectAutomation(req.params.id);
+    res.redirect(`/projects/${req.params.id}/topic?notice=${result.resumed ? "automation-resumed" : "automation-not-paused"}`);
+  });
+
+  app.post("/projects/:id/automation/reset", (req, res) => {
+    const result = resetProjectAutomation(req.params.id);
+    res.redirect(`/projects/${req.params.id}/topic?notice=${result.scheduled ? "automation-reset-requested" : "automation-reset"}`);
+  });
+
   app.post("/projects/:id/scenes/:sceneIndex/regenerate", async (req, res) => {
     try {
       await runProject(req.params.id, {
@@ -533,6 +560,7 @@ function renderProjectPage(res, projectId, requestedStep, helpAnswer, noticeKey)
 
   const activeStep = normalizeStep(requestedStep);
   const steps = buildWorkflowSteps(project, activeStep);
+  const generationView = buildGenerationView(project);
   const topicPromptText = project.settings?.topicPrompt || project.topic || "";
 
   res.render("project", {
@@ -542,6 +570,7 @@ function renderProjectPage(res, projectId, requestedStep, helpAnswer, noticeKey)
     channels: listChannels(),
     versionLabel,
     helpAnswer,
+    generationView,
     durationOptions,
     noticeMessage: getNoticeMessage(noticeKey),
     topicPromptText,
@@ -565,6 +594,7 @@ function buildWorkflowSteps(project, activeStep) {
   const scenesReady = Array.isArray(project.scenes) && project.scenes.length > 0 && project.scenes.every((scene) => scene.imagePath);
   const videoReady = Boolean(project.output?.videoPath);
   const uploadStatus = project.output?.uploadStatus || "pending";
+  const generationSteps = project.output?.generation?.steps ?? {};
 
   const completedMap = {
     topic: Boolean(project.topic),
@@ -579,7 +609,8 @@ function buildWorkflowSteps(project, activeStep) {
   const failedStep = resolveFailedStep(project, completedMap);
 
   return workflowOrder.map((step) => {
-    const statusKey = resolveStepStatus(step, completedMap, runningStep, failedStep);
+    const generationState = generationSteps[step]?.state;
+    const statusKey = resolveStepStatus(step, completedMap, runningStep, failedStep, generationState);
 
     return {
       key: step,
@@ -589,14 +620,100 @@ function buildWorkflowSteps(project, activeStep) {
       active: activeStep === step,
       done: completedMap[step],
       statusKey,
-      statusLabel: workflowStatusLabel(statusKey)
+      statusLabel: workflowStatusLabel(statusKey),
+      detail: generationSteps[step]?.detail || workflowStatusDetail(statusKey, completedMap[step])
     };
   });
+}
+
+function buildGenerationView(project) {
+  const generation = project.output?.generation;
+  const scenesReady = Array.isArray(project.scenes) && project.scenes.length > 0 && project.scenes.every((scene) => scene.imagePath);
+  const videoReady = Boolean(project.output?.videoPath);
+  const completedMap = {
+    topic: Boolean(project.topic),
+    research: Boolean(project.research?.ideas?.length || project.research?.summary),
+    script: Boolean(project.script_text),
+    scenes: scenesReady,
+    render: videoReady
+  };
+  const primarySteps = ["topic", "research", "script", "scenes", "render"];
+  const completedCount = primarySteps.filter((step) => completedMap[step]).length;
+  const inferredStep = primarySteps.find((step) => !completedMap[step]) || "render";
+  const inferredState = inferGenerationState(project, completedMap);
+  const inferredDetail = inferGenerationDetail(project, inferredState, completedMap, inferredStep);
+  const inferredPercent = inferredState === "completed" ? 100 : Math.round((completedCount / primarySteps.length) * 100);
+  const resolvedState = generation?.state || inferredState;
+
+  return {
+    state: resolvedState,
+    stateLabel: generationStateLabel(resolvedState),
+    percent: generation?.percent ?? inferredPercent,
+    currentStep: generation?.currentStep || inferredStep,
+    currentLabel: generation?.currentLabel || stepLabel(generation?.currentStep || inferredStep),
+    detail: generation?.detail || inferredDetail,
+    sceneCurrent: generation?.sceneCurrent || 0,
+    sceneTotal: generation?.sceneTotal || project.scenes.length || 0,
+    error: generation?.error || project.output?.error || null,
+    autoRefresh: resolvedState === "running" || resolvedState === "pause_requested"
+  };
+}
+
+function inferGenerationState(project, completedMap) {
+  if (project.output?.generation?.state) {
+    return project.output.generation.state;
+  }
+
+  if (project.status === "failed" || project.output?.uploadStatus === "failed" || project.output?.error) {
+    return "failed";
+  }
+
+  if (project.output?.uploadStatus === "uploading") {
+    return "running";
+  }
+
+  if (completedMap.render) {
+    return "completed";
+  }
+
+  if (project.status === "running") {
+    return "running";
+  }
+
+  return "idle";
+}
+
+function inferGenerationDetail(project, state, completedMap, currentStep) {
+  if (state === "failed") {
+    return project.output?.error || "오류 확인 필요";
+  }
+
+  if (state === "completed") {
+    if (project.output?.uploadStatus === "uploaded") {
+      return "업로드까지 완료되었습니다.";
+    }
+
+    if (project.channel_id) {
+      return "렌더 완료, 업로드 대기 상태입니다.";
+    }
+
+    return "자동 생성이 완료되었습니다.";
+  }
+
+  if (state === "running") {
+    return "자동 생성이 진행 중입니다.";
+  }
+
+  return `${stepShortLabel(currentStep)} 단계 대기 중입니다.`;
 }
 
 function resolveRunningStep(project, completedMap) {
   if (project.output?.uploadStatus === "uploading") {
     return "publish";
+  }
+
+  if (completedMap.render) {
+    return null;
   }
 
   if (project.status !== "running") {
@@ -618,7 +735,23 @@ function resolveFailedStep(project, completedMap) {
   return workflowOrder.find((step) => !completedMap[step] && step !== "publish") || "render";
 }
 
-function resolveStepStatus(step, completedMap, runningStep, failedStep) {
+function resolveStepStatus(step, completedMap, runningStep, failedStep, generationState) {
+  if (generationState === "failed") {
+    return "failed";
+  }
+
+  if (generationState === "paused" || generationState === "pause_requested") {
+    return "paused";
+  }
+
+  if (generationState === "running") {
+    return "running";
+  }
+
+  if (generationState === "done") {
+    return "done";
+  }
+
   if (step === failedStep) {
     return "failed";
   }
@@ -638,11 +771,45 @@ function workflowStatusLabel(statusKey) {
   const labels = {
     done: "완료",
     running: "진행중",
+    paused: "중지",
     pending: "대기",
     failed: "실패"
   };
 
   return labels[statusKey] || "대기";
+}
+
+function workflowStatusDetail(statusKey, done) {
+  if (statusKey === "running") {
+    return "현재 작업 중";
+  }
+
+  if (statusKey === "paused") {
+    return "일시중지됨";
+  }
+
+  if (statusKey === "failed") {
+    return "오류 확인 필요";
+  }
+
+  if (done || statusKey === "done") {
+    return "결과 준비됨";
+  }
+
+  return "다음 작업 대기";
+}
+
+function generationStateLabel(state) {
+  const labels = {
+    idle: "대기",
+    running: "진행중",
+    pause_requested: "일시중지 요청",
+    paused: "일시중지",
+    completed: "완료",
+    failed: "실패"
+  };
+
+  return labels[state] || "대기";
 }
 
 function stepLabel(step) {
@@ -787,7 +954,8 @@ function buildAgentContext(project) {
       uploadStatus: project.output?.uploadStatus || "pending",
       videoUrl: toPublicStorageUrl(project.output?.videoPath),
       thumbnailUrl: toPublicStorageUrl(project.output?.thumbnailPath),
-      subtitlesUrl: toPublicStorageUrl(project.output?.subtitlesPath)
+      subtitlesUrl: toPublicStorageUrl(project.output?.subtitlesPath),
+      generation: project.output?.generation || null
     }
   };
 }
@@ -860,7 +1028,15 @@ function getNoticeMessage(noticeKey) {
     "script-saved": "대본을 저장했습니다.",
     "bootstrap-complete": "주제부터 대본까지 자동 생성이 완료되었습니다.",
     "render-complete": "렌더 실행이 완료되었습니다.",
-    "scene-regenerated": "선택한 장면을 다시 생성했습니다."
+    "scene-regenerated": "선택한 장면을 다시 생성했습니다.",
+    "automation-started": "전체 자동 생성을 시작했습니다.",
+    "automation-already-running": "이미 자동 생성이 진행 중입니다.",
+    "automation-pause-requested": "현재 단계 완료 후 일시중지합니다.",
+    "automation-not-running": "진행 중인 자동 생성이 없습니다.",
+    "automation-resumed": "자동 생성을 다시 시작했습니다.",
+    "automation-not-paused": "재개할 자동 생성 상태가 없습니다.",
+    "automation-reset": "자동 생성 결과를 초기화했습니다.",
+    "automation-reset-requested": "현재 단계가 끝나면 초기화를 진행합니다."
   };
 
   return messages[noticeKey] || null;

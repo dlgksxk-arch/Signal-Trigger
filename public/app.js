@@ -70,6 +70,12 @@ if (workflowPage) {
   const initialStep = initialPath[initialPath.length - 1];
   setActiveStep(initialStep || getStepFromUrl());
 
+  if (workflowPage.dataset.autoRefresh === "true") {
+    window.setTimeout(() => {
+      window.location.reload();
+    }, 4000);
+  }
+
   if (sceneModal) {
     const sceneOpeners = Array.from(document.querySelectorAll("[data-scene-open]"));
     const sceneClosers = Array.from(document.querySelectorAll("[data-scene-close]"));
