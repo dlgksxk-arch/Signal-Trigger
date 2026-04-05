@@ -486,10 +486,12 @@ function renderHomePage(res, requestedSection) {
   const activeHomeSection = normalizeHomeSection(requestedSection);
   const channels = listChannels();
   const projects = listProjects();
+  const dashboardStats = buildDashboardStats(projects, channels);
 
   res.render("index", {
     channels,
     projects,
+    dashboardStats,
     versionLabel,
     activeHomeSection,
     durationOptions,
@@ -501,6 +503,25 @@ function renderHomePage(res, requestedSection) {
       active: activeHomeSection === section
     }))
   });
+}
+
+function buildDashboardStats(projects, channels) {
+  const readyCount = projects.filter((project) => project.status === "ready").length;
+  const runningCount = projects.filter((project) => project.status === "running").length;
+  const failedCount = projects.filter((project) => project.status === "failed").length;
+  const queuedUploadCount = projects.filter((project) => {
+    const uploadStatus = project.output?.uploadStatus;
+    return uploadStatus === "queued" || uploadStatus === "uploading";
+  }).length;
+
+  return {
+    channelCount: channels.length,
+    projectCount: projects.length,
+    readyCount,
+    runningCount,
+    failedCount,
+    queuedUploadCount
+  };
 }
 
 function renderProjectPage(res, projectId, requestedStep, helpAnswer, noticeKey) {

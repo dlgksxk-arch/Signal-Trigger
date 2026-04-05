@@ -514,6 +514,43 @@ small {
   gap: 14px;
 }
 
+.dashboard-project-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.dashboard-project-card {
+  padding: 20px;
+}
+
+.dashboard-project-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.dashboard-project-head strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 20px;
+}
+
+.dashboard-project-head p {
+  color: var(--muted);
+}
+
+.dashboard-project-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.dashboard-project-actions form {
+  margin: 0;
+}
+
 .action-card {
   display: block;
   padding: 18px;

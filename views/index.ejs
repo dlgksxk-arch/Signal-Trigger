@@ -33,9 +33,9 @@
           <p class="section-tag">Workflow</p>
           <ul class="studio-side-list">
             <li>주제 프롬프트 입력</li>
-            <li>프롬프트 기준 주제 도출</li>
-            <li>소재 발굴과 리서치 저장</li>
-            <li>길이 기반 대본 자동 생성</li>
+            <li>도출된 주제 확인</li>
+            <li>리서치 저장</li>
+            <li>길이 기준 대본 생성</li>
             <li>장면 생성과 렌더 확인</li>
             <li>예약 업로드 연동</li>
           </ul>
@@ -47,10 +47,13 @@
           <section class="topbar-card">
             <div>
               <p class="section-tag">Studio Dashboard</p>
-              <h1>롱폼 제작 대시보드</h1>
-              <p class="lead-text">왼쪽은 스튜디오 탐색, 가운데는 작업 카드 중심으로 구성했습니다. 새 프로젝트를 만들면 단계별 편집 화면으로 바로 이동합니다.</p>
+              <h1>제작 대시보드</h1>
+              <p class="lead-text">대시보드에서 바로 프로젝트를 열고, 단계 화면으로 이동하고, 전체 실행까지 할 수 있습니다.</p>
             </div>
-            <a class="ghost-button" href="/workspace/create">새 프로젝트</a>
+            <div class="form-actions">
+              <a class="ghost-button" href="/workspace/create">새 프로젝트</a>
+              <a class="inline-link" href="/workspace/projects">보관함</a>
+            </div>
           </section>
 
           <section class="studio-metrics">
@@ -60,11 +63,23 @@
             </article>
             <article class="metric-card">
               <span class="metric-label">채널 수</span>
-              <strong><%= channels.length %></strong>
+              <strong><%= dashboardStats.channelCount %></strong>
             </article>
             <article class="metric-card">
               <span class="metric-label">프로젝트 수</span>
-              <strong><%= projects.length %></strong>
+              <strong><%= dashboardStats.projectCount %></strong>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">완료</span>
+              <strong><%= dashboardStats.readyCount %></strong>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">진행중</span>
+              <strong><%= dashboardStats.runningCount %></strong>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">업로드 대기</span>
+              <strong><%= dashboardStats.queuedUploadCount %></strong>
             </article>
           </section>
 
@@ -76,16 +91,19 @@
                     <p class="section-tag">Quick Actions</p>
                     <h2>빠른 실행</h2>
                   </div>
-                  <a class="inline-link" href="/workspace/projects">전체 프로젝트 보기</a>
                 </div>
                 <div class="action-grid">
                   <a class="action-card" href="/workspace/create">
                     <strong>새 프로젝트 생성</strong>
-                    <p>주제 프롬프트, 영상 길이, 채널, 예약 시간을 한 번에 입력합니다.</p>
+                    <p>주제 프롬프트와 영상 길이를 넣고 새 작업을 시작합니다.</p>
                   </a>
                   <a class="action-card" href="/workspace/channels">
                     <strong>업로드 채널 연결</strong>
                     <p>n8n 웹훅과 업로드 채널 정보를 저장합니다.</p>
+                  </a>
+                  <a class="action-card" href="/workspace/projects">
+                    <strong>프로젝트 보관함</strong>
+                    <p>기존 프로젝트를 다시 열고 단계별 편집 화면으로 이동합니다.</p>
                   </a>
                 </div>
               </article>
@@ -97,7 +115,7 @@
                     <h2>최근 프로젝트</h2>
                   </div>
                 </div>
-                <div class="list-stack">
+                <div class="dashboard-project-grid">
                   <% if (!projects.length) { %>
                     <div class="empty-card">
                       <strong>프로젝트가 없습니다.</strong>
@@ -106,13 +124,29 @@
                   <% } %>
                   <% projects.slice(0, 5).forEach((project) => { %>
                     <% const projectTitle = (project.topic || '').split(/\r?\n/)[0].slice(0, 60); %>
-                    <a class="list-row" href="/projects/<%= project.id %>/topic">
-                      <div>
-                        <strong><%= projectTitle %></strong>
-                        <p><%= project.language %> · <%= project.tone %> · <%= project.format %> · 약 <%= project.settings?.durationMinutes || 10 %>분</p>
+                    <article class="panel-card dashboard-project-card">
+                      <div class="dashboard-project-head">
+                        <div>
+                          <strong><%= projectTitle %></strong>
+                          <p><%= project.language %> · <%= project.tone %> · <%= project.format %> · 약 <%= project.settings?.durationMinutes || 10 %>분</p>
+                        </div>
+                        <span class="status-pill <%= project.status %>"><%= project.status %></span>
                       </div>
-                      <span class="status-pill <%= project.status %>"><%= project.status %></span>
-                    </a>
+
+                      <div class="dashboard-project-actions">
+                        <a class="inline-link" href="/projects/<%= project.id %>/topic">주제</a>
+                        <a class="inline-link" href="/projects/<%= project.id %>/research">리서치</a>
+                        <a class="inline-link" href="/projects/<%= project.id %>/script">대본</a>
+                        <a class="inline-link" href="/projects/<%= project.id %>/scenes">장면</a>
+                        <a class="inline-link" href="/projects/<%= project.id %>/render">렌더</a>
+                        <form action="/projects/<%= project.id %>/run" method="post">
+                          <button type="submit">전체 실행</button>
+                        </form>
+                        <% if (project.output?.videoPath) { %>
+                          <a class="inline-link" href="<%= project.output.videoPath.replace(/^.*?storage/, '/storage').replace(/\\/g, '/') %>" target="_blank">영상 열기</a>
+                        <% } %>
+                      </div>
+                    </article>
                   <% }) %>
                 </div>
               </article>
@@ -138,7 +172,7 @@
                     <span class="timeline-bullet"></span>
                     <div>
                       <strong>도출된 주제 확인</strong>
-                      <p>프롬프트를 저장하면 실제 사용할 주제가 자동으로 정리됩니다.</p>
+                      <p>프롬프트를 저장하면 실제 사용 주제가 자동으로 정리됩니다.</p>
                     </div>
                   </div>
                   <div class="timeline-row">
@@ -147,6 +181,45 @@
                       <strong>길이 기준 대본 생성</strong>
                       <p>선택한 영상 길이를 기준으로 자동 대본을 생성합니다.</p>
                     </div>
+                  </div>
+                  <div class="timeline-row">
+                    <span class="timeline-bullet"></span>
+                    <div>
+                      <strong>장면과 렌더 확인</strong>
+                      <p>장면 생성, 음성, 자막, 최종 mp4 결과를 순서대로 확인합니다.</p>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article class="panel-card">
+                <div class="panel-header">
+                  <div>
+                    <p class="section-tag">Queue</p>
+                    <h2>현재 상태</h2>
+                  </div>
+                </div>
+                <div class="list-stack">
+                  <div class="list-row static-row">
+                    <div>
+                      <strong>완료</strong>
+                      <p>렌더까지 끝난 프로젝트 수</p>
+                    </div>
+                    <span class="status-pill ready"><%= dashboardStats.readyCount %></span>
+                  </div>
+                  <div class="list-row static-row">
+                    <div>
+                      <strong>진행중</strong>
+                      <p>현재 처리 중인 프로젝트 수</p>
+                    </div>
+                    <span class="status-pill running"><%= dashboardStats.runningCount %></span>
+                  </div>
+                  <div class="list-row static-row">
+                    <div>
+                      <strong>실패</strong>
+                      <p>재확인이 필요한 프로젝트 수</p>
+                    </div>
+                    <span class="status-pill failed"><%= dashboardStats.failedCount %></span>
                   </div>
                 </div>
               </article>
@@ -159,7 +232,7 @@
             <div>
               <p class="section-tag">Create Studio</p>
               <h1>새 프로젝트 생성</h1>
-              <p class="lead-text">주제 프롬프트를 입력하면 저장 단계에서 실제 사용할 주제가 도출됩니다. 기본 영상 길이는 10분입니다.</p>
+              <p class="lead-text">주제 프롬프트를 입력하면 다음 단계에서 실제 사용할 주제가 도출됩니다. 기본 영상 길이는 10분입니다.</p>
             </div>
           </section>
 
@@ -178,7 +251,7 @@
                   <textarea
                     name="topicPrompt"
                     class="prompt-textarea"
-                    placeholder="예: BBC 헤드라인 스타일로 오늘 가장 중요한 국제 뉴스 3가지를 정리하고, 각 뉴스의 배경과 앞으로의 영향까지 설명해 주세요."
+                    placeholder="예: BBC 헤드라인 스타일로 오늘 가장 중요한 국제 뉴스 3가지를 정리하고, 각 이슈의 배경과 앞으로의 영향을 설명해 주세요."
                     required
                   ></textarea>
                 </label>
@@ -317,7 +390,7 @@
             <div>
               <p class="section-tag">Project Library</p>
               <h1>프로젝트 보관함</h1>
-              <p class="lead-text">생성한 프로젝트를 다시 열어 단계별 편집 화면으로 이동합니다.</p>
+              <p class="lead-text">생성된 프로젝트를 다시 열고 단계별 편집 화면으로 이동합니다.</p>
             </div>
           </section>
 

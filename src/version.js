@@ -1,7 +1,7 @@
 export const appVersion = {
   major: 1,
   minor: 0,
-  patch: 6
+  patch: 7
 };
 
 export function getVersionLabel() {
