@@ -562,10 +562,13 @@ export async function runProject(projectId, options = {}) {
     await generateNarration({
       script,
       language: project.language,
-      outputPath: narrationPath
+      outputPath: narrationPath,
+      subtitlesPath
     });
 
-    generateSrt({ scenes, outputPath: subtitlesPath });
+    if (!fs.existsSync(subtitlesPath)) {
+      generateSrt({ scenes, outputPath: subtitlesPath });
+    }
 
     await renderVideo({
       sceneImages: scenes.map((scene) => scene.imagePath),

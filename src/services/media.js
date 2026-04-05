@@ -68,21 +68,32 @@ export async function generateSceneImage({ outputPath, scene, styleProfile, form
   return outputPath;
 }
 
-export async function generateNarration({ script, language, outputPath }) {
+export async function generateNarration({ script, language, outputPath, subtitlesPath }) {
   ensureDir(path.dirname(outputPath));
   const textPath = path.join(path.dirname(outputPath), "narration.txt");
   fs.writeFileSync(textPath, script, "utf8");
+  const voice = pickVoice(language);
+  const voiceOptions = pickVoiceOptions(language);
 
-  await runCommand("py", [
+  const args = [
     "-m",
     "edge_tts",
     "--file",
     textPath,
     "--voice",
-    pickVoice(language),
+    voice,
+    `--rate=${voiceOptions.rate}`,
+    `--pitch=${voiceOptions.pitch}`,
     "--write-media",
     outputPath
-  ]);
+  ];
+
+  if (subtitlesPath) {
+    ensureDir(path.dirname(subtitlesPath));
+    args.push("--write-subtitles", subtitlesPath);
+  }
+
+  await runCommand("py", args);
   return outputPath;
 }
 
@@ -96,6 +107,18 @@ function pickVoice(language) {
   }
 
   return process.env.DEFAULT_KO_VOICE || "ko-KR-InJoonNeural";
+}
+
+function pickVoiceOptions(language) {
+  if (language === "en") {
+    return { rate: "+4%", pitch: "-8Hz" };
+  }
+
+  if (language === "ja") {
+    return { rate: "+2%", pitch: "-6Hz" };
+  }
+
+  return { rate: "+3%", pitch: "-8Hz" };
 }
 
 export function generateSrt({ scenes, outputPath }) {

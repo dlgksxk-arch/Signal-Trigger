@@ -461,6 +461,8 @@ function cleanupGeneratedScript(script) {
   return String(script ?? "")
     .replace(/^\s*(intro|introduction|hook|body|main body|conclusion|closing|outro)\s*[:\-]\s*/gim, "")
     .replace(/^\s*(인트로|도입|본론|결론|마무리|아웃트로)\s*[:\-]\s*/gim, "")
+    .replace(/^\s*[\[(]?\s*(intro music|music|bgm|background music|dramatic music|opening music|intro sfx)\s*[\])]?\s*$/gim, "")
+    .replace(/^\s*[\[(]?\s*(인트로 음악|음악|브금|배경음악|오프닝 음악)\s*[\])]?\s*$/gim, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
@@ -488,18 +490,61 @@ const editorialScenePromptBase = [
   "12. Write in English.",
   "",
   "Global visual baseline for every prompt:",
-  "editorial political cartoon, geopolitical illustration, newspaper op-ed art, sharp linework, dramatic composition, serious satirical tone, historically aware imagery, symbolic but grounded, textured shading, muted colors, strong facial expression, clean background separation"
+  "editorial political cartoon, geopolitical illustration, newspaper op-ed art, sharp linework, dramatic composition, serious satirical tone, historically aware imagery, symbolic but grounded, textured shading, muted colors, clean background separation",
+  "",
+  "Variety rule:",
+  "Avoid overusing close-up character portraits. Use diverse subject matter such as maps, borders, war rooms, parliaments, military hardware, protest crowds, ports, trade routes, factories, documents, city skylines, satellites, energy infrastructure, naval scenes, and symbolic statecraft scenes whenever they better fit the narration.",
+  "Only use a human face as the main focus when a specific leader, diplomat, soldier, or crowd action is essential to the meaning."
 ].join("\n");
 
-function buildEditorialScenePrompt({ topic, paragraph, tone, format, colors, customPrompt }) {
+function buildSceneVisualAngle(paragraph, index) {
+  const text = normalizeText(paragraph).toLowerCase();
+
+  if (/nuclear|missile|warhead|핵|미사일/.test(text)) {
+    return "missile silo, launch control room, nuclear map table, warning lights, geopolitical tension";
+  }
+
+  if (/sanction|trade|economy|market|oil|gas|supply chain|제재|무역|경제|원유|가스/.test(text)) {
+    return "trade route map, cargo port, oil facility, currency chart, sanctions documents, industrial backdrop";
+  }
+
+  if (/border|territory|sea|strait|navy|fleet|island|국경|영해|해협|함대/.test(text)) {
+    return "border checkpoint, contested sea map, naval vessels, surveillance view, strategic geography";
+  }
+
+  if (/protest|revolution|uprising|riot|coup|정권|혁명|시위|쿠데타/.test(text)) {
+    return "street protest, state building, riot police silhouette, torn flags, regime pressure";
+  }
+
+  if (/diplom|summit|negotiat|treaty|alliance|유럽연합|정상회담|외교|협상|동맹/.test(text)) {
+    return "summit table, handshake under tension, treaty papers, flags, guarded diplomatic chamber";
+  }
+
+  if (/history|empire|legacy|colonial|archival|historical|역사|제국|식민/.test(text)) {
+    return "archival documents, faded map, old palace or fortress, historical uniforms, layered timeline imagery";
+  }
+
+  const fallbackAngles = [
+    "strategic world map with highlighted flashpoints and state symbols",
+    "government war room with screens, maps, and tense officials",
+    "industrial and military infrastructure under geopolitical pressure",
+    "symbolic statecraft scene with flags, documents, and hard shadows"
+  ];
+
+  return fallbackAngles[index % fallbackAngles.length];
+}
+
+function buildEditorialScenePrompt({ topic, paragraph, tone, format, colors, customPrompt, index }) {
   return [
     editorialScenePromptBase,
     "",
     `Topic: ${normalizeText(topic) || "Global geopolitics"}`,
     `Narration section: ${normalizeText(paragraph)}`,
     `Tone: ${normalizeText(tone) || "serious, intelligent, dramatic"}`,
+    `Primary visual angle: ${buildSceneVisualAngle(paragraph, index)}`,
     `Frame: ${format === "landscape" ? "16:9 wide composition" : "9:16 vertical composition"}`,
     `Color palette: ${colors.join(", ")}`,
+    "Composition rule: avoid single-person portrait unless absolutely necessary for the scene meaning.",
     customPrompt ? `Channel direction: ${normalizeText(customPrompt)}` : "",
     "",
     "Output:",
@@ -522,7 +567,7 @@ function buildFallbackParagraphs({ topic, language, research, customPrompt, tone
     for (let index = 0; index < bodyCount; index += 1) {
       const idea = ideas[index % Math.max(ideas.length, 1)] || safeTopic;
       paragraphs.push(
-        `Point ${index + 1}. We explain ${idea}, why it matters inside ${safeTopic}, what viewers are likely missing, and what a practical takeaway looks like in plain language.`
+        `We explain ${idea}, why it matters inside ${safeTopic}, what viewers are likely missing, and what a practical takeaway looks like in plain language.`
       );
     }
 
@@ -543,7 +588,7 @@ function buildFallbackParagraphs({ topic, language, research, customPrompt, tone
   for (let index = 0; index < bodyCount; index += 1) {
     const idea = ideas[index % Math.max(ideas.length, 1)] || safeTopic;
     paragraphs.push(
-      `포인트 ${index + 1}. ${idea}를 중심으로 현재 상황, 중요한 이유, 앞으로의 전개, 그리고 시청자가 바로 이해해야 할 핵심만 ${tone || "정보형"} 톤으로 설명합니다.`
+      `${idea}를 중심으로 현재 상황, 중요한 이유, 앞으로의 전개, 그리고 시청자가 바로 이해해야 할 핵심만 ${tone || "정보형"} 톤으로 설명합니다.`
     );
   }
 
@@ -592,7 +637,8 @@ export async function generateScript({ topic, tone, language, research, customPr
     `- Match roughly ${minutes} minutes of spoken runtime`,
     "- Use paragraph breaks",
     "- Make it specific and concrete",
-    "- Do not label sections such as Intro, Body, Conclusion, 인트로, 본론, 결론"
+    "- Do not label sections such as Intro, Body, Conclusion, 인트로, 본론, 결론",
+    "- Do not include music cues or stage directions such as [Intro music], [BGM], [Music]"
   ].join("\n");
 
   try {
@@ -651,7 +697,8 @@ export function planScenes({ script, topic, tone, format, styleProfile, customPr
       tone,
       format,
       colors,
-      customPrompt
+      customPrompt,
+      index
     }),
     transition: index % 2 === 0 ? "fade" : "slide",
     variationSeed: `${safeTopic}-${index + 1}-${Date.now()}`
