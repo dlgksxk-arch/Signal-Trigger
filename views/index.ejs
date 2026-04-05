@@ -43,6 +43,13 @@
       </aside>
 
       <main class="studio-main">
+        <% if (noticeMessage) { %>
+          <section class="notice-banner">
+            <strong>알림</strong>
+            <span><%= noticeMessage %></span>
+          </section>
+        <% } %>
+
         <% if (activeHomeSection === 'dashboard') { %>
           <section class="topbar-card">
             <div>
@@ -145,6 +152,10 @@
                         <% if (project.output?.videoPath) { %>
                           <a class="inline-link" href="<%= project.output.videoPath.replace(/^.*?storage/, '/storage').replace(/\\/g, '/') %>" target="_blank">영상 열기</a>
                         <% } %>
+                        <form action="/projects/<%= project.id %>/delete" method="post" data-delete-project-form>
+                          <input type="hidden" name="returnTo" value="dashboard" />
+                          <button class="danger-button" type="submit">삭제</button>
+                        </form>
                       </div>
                     </article>
                   <% }) %>
@@ -418,6 +429,10 @@
                     </div>
                     <span class="status-pill <%= project.status %>"><%= project.status %></span>
                   </a>
+                  <form class="project-delete-row" action="/projects/<%= project.id %>/delete" method="post" data-delete-project-form>
+                    <input type="hidden" name="returnTo" value="projects" />
+                    <button class="danger-button" type="submit">프로젝트 삭제</button>
+                  </form>
                 <% }) %>
               </div>
             </article>

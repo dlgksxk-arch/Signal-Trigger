@@ -79,6 +79,12 @@ button {
   border-color: var(--line-strong);
 }
 
+.danger-button {
+  background: rgba(239, 68, 68, 0.16);
+  color: #fecaca;
+  border-color: rgba(239, 68, 68, 0.36);
+}
+
 input,
 select,
 textarea {
@@ -612,6 +618,14 @@ small {
 
 .dashboard-project-actions form {
   margin: 0;
+}
+
+.project-delete-row {
+  margin: -2px 0 14px;
+}
+
+.topbar-actions {
+  margin-top: 16px;
 }
 
 .action-card {

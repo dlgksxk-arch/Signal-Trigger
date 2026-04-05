@@ -66,6 +66,12 @@
             <p class="section-tag">Project Editor</p>
             <h1><%= (project.topic || '').split(/\r?\n/)[0] %></h1>
             <p class="lead-text">왼쪽에서 작업 단계를 고르고, 가운데에서 해당 단계만 집중 편집합니다. 현재 목표 영상 길이는 약 <%= project.settings?.durationMinutes || 10 %>분입니다.</p>
+            <div class="form-actions topbar-actions">
+              <form action="/projects/<%= project.id %>/delete" method="post" data-delete-project-form>
+                <input type="hidden" name="returnTo" value="projects" />
+                <button class="danger-button" type="submit">프로젝트 삭제</button>
+              </form>
+            </div>
           </div>
           <div class="editor-summary">
             <div class="metric-card primary-metric">

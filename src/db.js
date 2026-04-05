@@ -130,6 +130,13 @@ export function updateProject(id, patch) {
   `).run({ id, ...patch });
 }
 
+export function deleteProject(id) {
+  db.prepare(`
+    DELETE FROM projects
+    WHERE id = ?
+  `).run(id);
+}
+
 export function getProject(id) {
   const row = db.prepare(`
     SELECT p.*, c.name AS channel_name, c.platform AS channel_platform, c.upload_webhook_url AS channel_webhook

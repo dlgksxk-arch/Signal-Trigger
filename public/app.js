@@ -1,3 +1,14 @@
+const deleteProjectForms = Array.from(document.querySelectorAll("[data-delete-project-form]"));
+
+deleteProjectForms.forEach((form) => {
+  form.addEventListener("submit", (event) => {
+    const confirmed = window.confirm("프로젝트를 삭제하면 장면, 음성, 자막, 영상 파일도 함께 삭제됩니다. 계속하시겠습니까?");
+    if (!confirmed) {
+      event.preventDefault();
+    }
+  });
+});
+
 const workflowPage = document.querySelector(".workflow-page");
 
 if (workflowPage) {

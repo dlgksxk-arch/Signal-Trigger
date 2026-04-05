@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -7,11 +8,13 @@ import { config } from "dotenv";
 import {
   createChannel,
   createProject,
+  deleteProject,
   getProject,
   listChannels,
   listDueUploads,
   listProjects,
   projectRoot,
+  projectsRoot,
   updateProject,
   uploadsRoot
 } from "./db.js";
@@ -53,11 +56,11 @@ export function createApp() {
   app.use("/storage", express.static(path.join(projectRoot, "storage")));
 
   app.get("/", (_req, res) => {
-    renderHomePage(res, "dashboard");
+    renderHomePage(res, "dashboard", _req.query.notice);
   });
 
   app.get("/workspace/:section", (req, res) => {
-    renderHomePage(res, req.params.section);
+    renderHomePage(res, req.params.section, req.query.notice);
   });
 
   app.get("/projects/:id/:step", async (req, res) => {
@@ -173,6 +176,23 @@ export function createApp() {
     });
 
     res.redirect(`/projects/${project.id}/topic?notice=topic-saved`);
+  });
+
+  app.post("/projects/:id/delete", (req, res) => {
+    const project = getProject(req.params.id);
+    if (!project) {
+      res.status(404).send("프로젝트를 찾을 수 없습니다.");
+      return;
+    }
+
+    try {
+      fs.rmSync(path.join(projectsRoot, project.id), { recursive: true, force: true });
+      deleteProject(project.id);
+      const returnTo = normalizeHomeSection(req.body.returnTo);
+      res.redirect(`/workspace/${returnTo}?notice=project-deleted`);
+    } catch (error) {
+      res.status(500).send(error instanceof Error ? error.message : "프로젝트 삭제에 실패했습니다.");
+    }
   });
 
   app.post("/projects/:id/bootstrap", async (req, res) => {
@@ -513,7 +533,7 @@ export function startServer() {
   });
 }
 
-function renderHomePage(res, requestedSection) {
+function renderHomePage(res, requestedSection, noticeKey) {
   const activeHomeSection = normalizeHomeSection(requestedSection);
   const channels = listChannels();
   const projects = listProjects();
@@ -524,6 +544,7 @@ function renderHomePage(res, requestedSection) {
     projects,
     dashboardStats,
     versionLabel,
+    noticeMessage: getNoticeMessage(noticeKey),
     activeHomeSection,
     durationOptions,
     homeNav: homeSections.map((section) => ({
@@ -1040,7 +1061,8 @@ function getNoticeMessage(noticeKey) {
     "automation-resumed": "자동 생성을 다시 시작했습니다.",
     "automation-not-paused": "재개할 자동 생성 상태가 없습니다.",
     "automation-reset": "자동 생성 결과를 초기화했습니다.",
-    "automation-reset-requested": "현재 단계가 끝나면 초기화를 진행합니다."
+    "automation-reset-requested": "현재 단계가 끝나면 초기화를 진행합니다.",
+    "project-deleted": "프로젝트를 삭제했습니다."
   };
 
   return messages[noticeKey] || null;
