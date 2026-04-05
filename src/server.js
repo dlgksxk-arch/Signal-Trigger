@@ -339,6 +339,52 @@ export function createApp() {
     }
   });
 
+  app.get("/api/projects/:id/agent-context", async (req, res) => {
+    const project = await hydrateProjectById(req.params.id);
+    if (!project) {
+      res.status(404).json({ error: "프로젝트를 찾을 수 없습니다." });
+      return;
+    }
+
+    res.json(buildAgentContext(project));
+  });
+
+  app.post("/api/projects/:id/agent/topic", async (req, res) => {
+    try {
+      const project = await executeTopicStage(req.params.id);
+      res.json({ ok: true, stage: "topic", context: buildAgentContext(project) });
+    } catch (error) {
+      res.status(500).json({ ok: false, stage: "topic", error: error instanceof Error ? error.message : "주제 도출 실패" });
+    }
+  });
+
+  app.post("/api/projects/:id/agent/research", async (req, res) => {
+    try {
+      const project = await executeResearchStage(req.params.id);
+      res.json({ ok: true, stage: "research", context: buildAgentContext(project) });
+    } catch (error) {
+      res.status(500).json({ ok: false, stage: "research", error: error instanceof Error ? error.message : "리서치 실패" });
+    }
+  });
+
+  app.post("/api/projects/:id/agent/script", async (req, res) => {
+    try {
+      const project = await executeScriptStage(req.params.id);
+      res.json({ ok: true, stage: "script", context: buildAgentContext(project) });
+    } catch (error) {
+      res.status(500).json({ ok: false, stage: "script", error: error instanceof Error ? error.message : "대본 생성 실패" });
+    }
+  });
+
+  app.post("/api/projects/:id/agent/render", async (req, res) => {
+    try {
+      const project = await executeRenderStage(req.params.id);
+      res.json({ ok: true, stage: "render", context: buildAgentContext(project) });
+    } catch (error) {
+      res.status(500).json({ ok: false, stage: "render", error: error instanceof Error ? error.message : "렌더 실패" });
+    }
+  });
+
   app.get("/api/upload-ready", (_req, res) => {
     const items = listDueUploads(new Date().toISOString()).map((project) => ({
       id: project.id,
@@ -631,6 +677,90 @@ async function hydrateProjectById(projectId) {
   }
 
   return hydrateProjectTopic(project);
+}
+
+function buildAgentContext(project) {
+  return {
+    id: project.id,
+    topic: project.topic,
+    topicPrompt: project.settings?.topicPrompt || "",
+    customPrompt: project.settings?.customPrompt || "",
+    language: project.language,
+    tone: project.tone,
+    format: project.format,
+    durationMinutes: project.settings?.durationMinutes || 10,
+    status: project.status,
+    scheduledAt: project.scheduled_at,
+    channel: {
+      id: project.channel_id,
+      name: project.channel_name,
+      platform: project.channel_platform,
+      webhookUrl: project.channel_webhook
+    },
+    research: project.research ?? null,
+    scriptText: project.script_text || "",
+    scriptLength: project.script_text?.length || 0,
+    scenesCount: project.scenes?.length || 0,
+    output: {
+      uploadStatus: project.output?.uploadStatus || "pending",
+      videoUrl: toPublicStorageUrl(project.output?.videoPath),
+      thumbnailUrl: toPublicStorageUrl(project.output?.thumbnailPath),
+      subtitlesUrl: toPublicStorageUrl(project.output?.subtitlesPath)
+    }
+  };
+}
+
+async function executeTopicStage(projectId) {
+  const project = getProject(projectId);
+  if (!project) {
+    throw new Error("프로젝트를 찾을 수 없습니다.");
+  }
+
+  return hydrateProjectTopic(project);
+}
+
+async function executeResearchStage(projectId) {
+  const hydrated = await executeTopicStage(projectId);
+  const research = await fetchTrendIdeas({
+    topicPrompt: hydrated.settings?.topicPrompt || hydrated.topic,
+    topic: hydrated.topic,
+    language: hydrated.language
+  });
+
+  updateProject(projectId, {
+    topic: research.selectedTopic || hydrated.topic,
+    updated_at: new Date().toISOString(),
+    research_json: JSON.stringify({
+      ...research,
+      manualNotes: hydrated.research?.manualNotes || ""
+    })
+  });
+
+  return getProject(projectId);
+}
+
+async function executeScriptStage(projectId) {
+  const project = await executeResearchStage(projectId);
+  const script = await generateScript({
+    topic: project.topic,
+    tone: project.tone,
+    language: project.language,
+    research: project.research,
+    customPrompt: project.settings?.customPrompt || "",
+    durationMinutes: project.settings?.durationMinutes || 10
+  });
+
+  updateProject(projectId, {
+    updated_at: new Date().toISOString(),
+    script_text: script
+  });
+
+  return getProject(projectId);
+}
+
+async function executeRenderStage(projectId) {
+  await executeScriptStage(projectId);
+  return runProject(projectId);
 }
 
 function parseDurationMinutes(value, fallback = 10) {

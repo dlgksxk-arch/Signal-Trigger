@@ -1,0 +1,325 @@
+{
+  "name": "Longform AI Production Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "longform-agent-run",
+        "responseMode": "responseNode"
+      },
+      "id": "Webhook_Trigger",
+      "name": "Workflow Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "projectId",
+              "name": "projectId",
+              "value": "={{ $json.body.projectId }}",
+              "type": "string"
+            },
+            {
+              "id": "requestedGoal",
+              "name": "requestedGoal",
+              "value": "={{ $json.body.goal || 'full-production' }}",
+              "type": "string"
+            },
+            {
+              "id": "runRender",
+              "name": "runRender",
+              "value": "={{ $json.body.runRender !== false }}",
+              "type": "boolean"
+            }
+          ]
+        }
+      },
+      "id": "Set_Request",
+      "name": "Normalize Request",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        500,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ ($env.LONGFORM_API_BASE_URL || 'http://host.docker.internal:3100') + '/api/projects/' + $('Normalize Request').item.json.projectId + '/agent-context' }}"
+      },
+      "id": "Http_Context_Start",
+      "name": "Get Project Context",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.LONGFORM_API_BASE_URL || 'http://host.docker.internal:3100') + '/api/projects/' + $('Normalize Request').item.json.projectId + '/agent/topic' }}"
+      },
+      "id": "Http_Topic",
+      "name": "Resolve Topic",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.LONGFORM_API_BASE_URL || 'http://host.docker.internal:3100') + '/api/projects/' + $('Normalize Request').item.json.projectId + '/agent/research' }}"
+      },
+      "id": "Http_Research",
+      "name": "Run Research",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1300,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.LONGFORM_API_BASE_URL || 'http://host.docker.internal:3100') + '/api/projects/' + $('Normalize Request').item.json.projectId + '/agent/script' }}"
+      },
+      "id": "Http_Script",
+      "name": "Generate Script",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $('Normalize Request').item.json.runRender }}",
+              "operation": "isTrue"
+            }
+          ]
+        }
+      },
+      "id": "If_Render",
+      "name": "Render Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1820,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.LONGFORM_API_BASE_URL || 'http://host.docker.internal:3100') + '/api/projects/' + $('Normalize Request').item.json.projectId + '/agent/render' }}"
+      },
+      "id": "Http_Render",
+      "name": "Run Render",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2080,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ ($env.LONGFORM_API_BASE_URL || 'http://host.docker.internal:3100') + '/api/projects/' + $('Normalize Request').item.json.projectId + '/agent-context' }}"
+      },
+      "id": "Http_Context_End",
+      "name": "Get Final Context",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2340,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "parametersHeaders": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.OPENAI_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { model: $env.OPENAI_MODEL || 'gpt-4.1-mini', response_format: { type: 'json_object' }, messages: [ { role: 'system', content: 'You are an operations controller for a YouTube longform production pipeline. Return concise JSON only.' }, { role: 'user', content: 'Summarize this run in JSON with keys summary, completedStages, nextAction, risks.\\n\\nRequested goal:\\n' + $('Normalize Request').item.json.requestedGoal + '\\n\\nFinal project context:\\n' + JSON.stringify($('Get Final Context').item.json, null, 2) } ] } }}"
+      },
+      "id": "Http_Run_Summary",
+      "name": "Create Run Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2600,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, projectId: $('Normalize Request').item.json.projectId, requestedGoal: $('Normalize Request').item.json.requestedGoal, finalContext: $('Get Final Context').item.json, runSummary: JSON.parse($('Create Run Summary').item.json.choices[0].message.content) } }}"
+      },
+      "id": "Respond_Final",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2860,
+        320
+      ]
+    }
+  ],
+  "connections": {
+    "Workflow Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Request": {
+      "main": [
+        [
+          {
+            "node": "Get Project Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Project Context": {
+      "main": [
+        [
+          {
+            "node": "Resolve Topic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Topic": {
+      "main": [
+        [
+          {
+            "node": "Run Research",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Research": {
+      "main": [
+        [
+          {
+            "node": "Generate Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Script": {
+      "main": [
+        [
+          {
+            "node": "Render Enabled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Run Render",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Final Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Render": {
+      "main": [
+        [
+          {
+            "node": "Get Final Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Final Context": {
+      "main": [
+        [
+          {
+            "node": "Create Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Run Summary": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1"
+}
