@@ -458,7 +458,7 @@ function buildResearchSummary(topic, ideas, language) {
     : `"${topic}" 기준으로 리서치를 저장했습니다.`;
 }
 
-export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
+async function fetchTrendIdeasLegacy({ topicPrompt, topic, language }) {
   const resolvedTopic = trimTopicTitle(topic || "")
     || await deriveTopicFromPrompt({ topicPrompt, language, fallbackTopic: topic });
 
@@ -497,6 +497,259 @@ export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
       selectedTopic: resolvedTopic,
       ideas: fallbackIdeas,
       summary: buildResearchSummary(resolvedTopic, fallbackIdeas, language)
+    };
+  }
+}
+
+function buildResearchScoutPrompt({ topicPrompt, topic, language, trendIdeas }) {
+  const outputLanguage = getOutputLanguageName(language);
+
+  return [
+    'You are a story scout for a YouTube channel called "Signal Trigger."',
+    "",
+    'When the input is "fun story", your job is to find a list of real-world topic ideas that are genuinely interesting, easy to get hooked on, and strong enough to turn into highly watchable longform videos.',
+    "",
+    "This is NOT about picking the most important topic.",
+    "This is NOT about picking the most technical topic.",
+    "This is NOT about sounding smart.",
+    "",
+    "Your job is to find stories that make people instantly curious.",
+    "",
+    "The topics can come from:",
+    "- current news",
+    "- history",
+    "- war",
+    "- politics",
+    "- diplomacy",
+    "- scandals",
+    "- betrayals",
+    "- strange alliances",
+    "- revenge stories",
+    "- failed leaders",
+    "- shocking decisions",
+    "- old grudges",
+    "- disasters caused by one bad move",
+    "- real-life stories that sound crazier than fiction",
+    "",
+    "What makes a good topic:",
+    "1. It should instantly make people think:",
+    '   - "Wait, what happened?"',
+    '   - "No way this is real."',
+    '   - "How did this turn out like that?"',
+    '   - "That sounds insane."',
+    '   - "I want to hear this story."',
+    "2. It should be easy to explain to ordinary viewers.",
+    "3. It should have strong drama, conflict, irony, or emotional tension.",
+    "4. It should have clear storytelling potential.",
+    "5. It should NOT feel like homework.",
+    "6. It should NOT be full of jargon.",
+    "7. It should NOT sound dry, academic, or overly serious.",
+    "8. It should feel like a real story people would actually click on.",
+    "",
+    "Selection preferences:",
+    "- wild true stories",
+    "- legendary political beefs",
+    "- revenge arcs",
+    "- strange historical turning points",
+    "- secret deals",
+    "- massive mistakes",
+    "- betrayals",
+    "- humiliations",
+    "- power grabs",
+    "- unintended consequences",
+    "- real events with cinematic energy",
+    "",
+    'If the user says "fun story", generate a list of the most promising topic ideas.',
+    "",
+    "Output format:",
+    "For each topic, provide:",
+    "1. Topic Idea",
+    "2. Why It Grabs Attention",
+    "3. Why It Would Make a Great Video",
+    "4. Suggested Hook Angle",
+    "",
+    "Generate 15 topic ideas.",
+    "",
+    `Write in clear, vivid, natural ${outputLanguage}.`,
+    "Do not sound academic.",
+    "Do not sound like a textbook.",
+    "Do not sound like a policy analyst.",
+    "Make the topics feel juicy, clickable, easy to understand, and highly watchable.",
+    "",
+    "Return valid JSON only in this shape:",
+    '{"topics":[{"topicIdea":"","whyItGrabsAttention":"","whyItWouldMakeAGreatVideo":"","suggestedHookAngle":""}]}',
+    "",
+    "Input:",
+    `Project language: ${outputLanguage}`,
+    `Creator input: ${normalizeText(topicPrompt) || "fun story"}`,
+    `Current resolved topic: ${normalizeText(topic) || "none"}`,
+    `Trend signals: ${trendIdeas.join(" | ") || "none"}`
+  ].join("\n");
+}
+
+function parseScoutTopics(raw) {
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed?.topics)) {
+      return parsed.topics
+        .map((item) => ({
+          topicIdea: normalizeText(item?.topicIdea),
+          whyItGrabsAttention: normalizeText(item?.whyItGrabsAttention),
+          whyItWouldMakeAGreatVideo: normalizeText(item?.whyItWouldMakeAGreatVideo),
+          suggestedHookAngle: normalizeText(item?.suggestedHookAngle)
+        }))
+        .filter((item) => item.topicIdea);
+    }
+  } catch {
+    // fallback below
+  }
+
+  return [];
+}
+
+function buildScoutSummary(topicCards, language) {
+  const blocks = topicCards.map((item, index) => [
+    `${index + 1}. ${item.topicIdea}`,
+    `- Why It Grabs Attention: ${item.whyItGrabsAttention}`,
+    `- Why It Would Make a Great Video: ${item.whyItWouldMakeAGreatVideo}`,
+    `- Suggested Hook Angle: ${item.suggestedHookAngle}`
+  ].join("\n"));
+
+  if (blocks.length) {
+    return blocks.join("\n\n");
+  }
+
+  return language === "en" ? "No scout result was generated." : "스토리 스카우트 결과가 없습니다.";
+}
+
+function buildFallbackScoutTopics(resolvedTopic, trendIdeas, language) {
+  return trendIdeas.slice(0, 15).map((idea) => {
+    if (language === "en") {
+      return {
+        topicIdea: idea,
+        whyItGrabsAttention: `It sounds like a real story with conflict, surprise, and immediate curiosity around ${idea}.`,
+        whyItWouldMakeAGreatVideo: `It is easy to follow, naturally dramatic, and can be expanded into a strong longform narrative tied to ${resolvedTopic}.`,
+        suggestedHookAngle: `Start with the one detail that makes ${idea} sound stranger, riskier, or more explosive than people expect.`
+      };
+    }
+
+    return {
+      topicIdea: idea,
+      whyItGrabsAttention: `${idea} 자체에 갈등과 반전이 보여서 바로 궁금증을 만들 수 있습니다.`,
+      whyItWouldMakeAGreatVideo: `${resolvedTopic}와 연결해 길게 풀기 쉽고, 일반 시청자도 이해하기 좋은 이야기 구조를 만들 수 있습니다.`,
+      suggestedHookAngle: `${idea}가 왜 생각보다 더 이상하고 위험한 이야기인지 한 줄로 먼저 던지면 좋습니다.`
+    };
+  });
+}
+
+export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
+  const resolvedTopic = trimTopicTitle(topic || "")
+    || await deriveTopicFromPrompt({ topicPrompt, language, fallbackTopic: topic });
+
+  try {
+    const trendIdeas = (await fetchTrendCandidates(language))
+      .sort((left, right) => historyPriorityScore(right) - historyPriorityScore(left))
+      .slice(0, 15);
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+    const baseUrl = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
+
+    if (apiKey) {
+      try {
+        const response = await fetch(`${baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model,
+            temperature: 0.9,
+            messages: [
+              {
+                role: "system",
+                content: "You scout highly clickable real-world story ideas for YouTube. Return valid JSON only."
+              },
+              {
+                role: "user",
+                content: buildResearchScoutPrompt({
+                  topicPrompt,
+                  topic: resolvedTopic,
+                  language,
+                  trendIdeas
+                })
+              }
+            ]
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const scoutTopics = parseScoutTopics(data.choices?.[0]?.message?.content || "").slice(0, 15);
+          if (scoutTopics.length) {
+            return {
+              source: `story-scout-${normalizeLanguage(language).geo}`,
+              selectedTopic: scoutTopics[0].topicIdea || resolvedTopic,
+              ideas: scoutTopics.map((item) => item.topicIdea),
+              summary: buildScoutSummary(scoutTopics, language)
+            };
+          }
+        }
+      } catch {
+        // fall back below
+      }
+    }
+
+    return {
+      source: `google-daily-trends-${normalizeLanguage(language).geo}`,
+      selectedTopic: resolvedTopic,
+      ideas: trendIdeas,
+      summary: buildResearchSummary(resolvedTopic, trendIdeas, language)
+    };
+  } catch {
+    const fallbackIdeas = language === "en"
+      ? [
+          `${resolvedTopic} background`,
+          `Why ${resolvedTopic} matters now`,
+          `${resolvedTopic} key stakeholders`,
+          `What comes next for ${resolvedTopic}`,
+          `Viewer questions about ${resolvedTopic}`,
+          `${resolvedTopic} episode structure`,
+          `${resolvedTopic} hidden rivalry`,
+          `${resolvedTopic} worst decision`,
+          `${resolvedTopic} revenge angle`,
+          `${resolvedTopic} forgotten trigger`,
+          `${resolvedTopic} dangerous turning point`,
+          `${resolvedTopic} strange alliance`,
+          `${resolvedTopic} humiliation story`,
+          `${resolvedTopic} collapse scenario`,
+          `${resolvedTopic} insane real story`
+        ]
+      : [
+          `${resolvedTopic} 핵심 배경`,
+          `${resolvedTopic} 지금 중요한 이유`,
+          `${resolvedTopic} 이해관계자`,
+          `${resolvedTopic} 다음 전개`,
+          `${resolvedTopic} 시청자 관심 질문`,
+          `${resolvedTopic} 영상 구성 포인트`,
+          `${resolvedTopic} 숨은 갈등`,
+          `${resolvedTopic} 최악의 결정`,
+          `${resolvedTopic} 복수 서사`,
+          `${resolvedTopic} 잊힌 시작점`,
+          `${resolvedTopic} 위험한 분기점`,
+          `${resolvedTopic} 이상한 동맹`,
+          `${resolvedTopic} 굴욕의 순간`,
+          `${resolvedTopic} 붕괴 시나리오`,
+          `${resolvedTopic} 믿기 힘든 실화`
+        ];
+    const scoutTopics = buildFallbackScoutTopics(resolvedTopic, fallbackIdeas, language);
+
+    return {
+      source: `fallback-${normalizeLanguage(language).geo}`,
+      selectedTopic: scoutTopics[0]?.topicIdea || resolvedTopic,
+      ideas: scoutTopics.map((item) => item.topicIdea),
+      summary: buildScoutSummary(scoutTopics, language)
     };
   }
 }
