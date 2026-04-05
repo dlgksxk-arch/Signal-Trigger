@@ -489,10 +489,10 @@ function normalizeHomeSection(section) {
 
 function homeSectionLabel(section) {
   const labels = {
-    dashboard: "대시보드",
-    create: "새 프로젝트",
+    dashboard: "Studio 대시보드",
+    create: "제작 시작",
     channels: "업로드 채널",
-    projects: "프로젝트 목록"
+    projects: "프로젝트 보관함"
   };
 
   return labels[section];
@@ -500,10 +500,10 @@ function homeSectionLabel(section) {
 
 function homeSectionShortLabel(section) {
   const labels = {
-    dashboard: "홈",
-    create: "생성",
-    channels: "채널",
-    projects: "목록"
+    dashboard: "Dashboard",
+    create: "Create",
+    channels: "Channels",
+    projects: "Library"
   };
 
   return labels[section];

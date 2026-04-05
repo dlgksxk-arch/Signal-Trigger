@@ -6,148 +6,145 @@
     <title>Longform Factory <%= versionLabel %></title>
     <link rel="stylesheet" href="/public/app.css" />
   </head>
-  <body>
-    <div class="dashboard-shell">
-      <aside class="dashboard-sidebar home-sidebar">
-        <div class="sidebar-brand home-brand">
-          <div class="brand-mark">LF</div>
+  <body class="app-body dark-body">
+    <div class="studio-shell">
+      <aside class="studio-sidebar">
+        <div class="studio-logo">
+          <div class="studio-logo-mark">LF</div>
           <div>
-            <p class="brand-title">Longform</p>
-            <p class="brand-sub">자동 공장 <%= versionLabel %></p>
+            <strong>Longform Studio</strong>
+            <span><%= versionLabel %></span>
           </div>
         </div>
 
-        <nav class="sidebar-menu home-nav">
+        <nav class="studio-nav">
           <% homeNav.forEach((item) => { %>
-            <a class="menu-item home-nav-item <%= item.active ? 'active' : '' %>" href="<%= item.href %>">
-              <span class="menu-dot"></span>
+            <a class="studio-nav-item <%= item.active ? 'active' : '' %>" href="<%= item.href %>">
+              <span class="studio-nav-dot"></span>
               <div>
                 <strong><%= item.label %></strong>
-                <span class="home-nav-caption"><%= item.shortLabel %></span>
+                <span><%= item.shortLabel %></span>
               </div>
             </a>
           <% }) %>
         </nav>
 
-        <section class="sidebar-note">
-          <p class="eyebrow">기본 흐름</p>
-          <ul class="sidebar-list workflow-list">
-            <li>1. 주제 설정</li>
-            <li>2. 소재 발굴</li>
-            <li>3. 대본 작성</li>
-            <li>4. 장면 편집</li>
-            <li>5. 렌더 결과</li>
-            <li>6. 업로드 연동</li>
+        <section class="studio-side-card">
+          <p class="section-tag">Workflow</p>
+          <ul class="studio-side-list">
+            <li>주제 선택</li>
+            <li>소재 수집</li>
+            <li>대본 작성</li>
+            <li>장면 편집</li>
+            <li>렌더 확인</li>
+            <li>업로드 연동</li>
           </ul>
         </section>
       </aside>
 
-      <main class="dashboard-main">
+      <main class="studio-main">
         <% if (activeHomeSection === 'dashboard') { %>
-          <section class="hero-board home-hero">
+          <section class="topbar-card">
             <div>
-              <p class="eyebrow">Dashboard</p>
-              <h1>롱폼 자동 공장 운영 화면</h1>
-              <p class="sub">주제 발굴부터 대본, 장면, 렌더, 업로드까지 한 화면 흐름으로 관리합니다.</p>
+              <p class="section-tag">Studio Dashboard</p>
+              <h1>자동 제작 현황</h1>
+              <p class="lead-text">유튜브 스튜디오처럼 좌측 탐색과 중앙 제작 보드를 분리하고, 우리 기능 흐름에 맞는 카드형 작업 화면으로 구성했습니다.</p>
             </div>
-
-            <div class="hero-stats hero-stats-wide">
-              <article class="stat-card accent">
-                <span class="stat-label">버전</span>
-                <strong><%= versionLabel %></strong>
-              </article>
-              <article class="stat-card">
-                <span class="stat-label">채널 수</span>
-                <strong><%= channels.length %></strong>
-              </article>
-              <article class="stat-card">
-                <span class="stat-label">프로젝트 수</span>
-                <strong><%= projects.length %></strong>
-              </article>
-            </div>
+            <a class="ghost-button" href="/workspace/create">새 제작 시작</a>
           </section>
 
-          <section class="dashboard-grid home-grid">
-            <section class="dashboard-column main-column">
-              <article class="dashboard-card spotlight-card">
-                <div class="card-header">
+          <section class="studio-metrics">
+            <article class="metric-card primary-metric">
+              <span class="metric-label">현재 버전</span>
+              <strong><%= versionLabel %></strong>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">채널 수</span>
+              <strong><%= channels.length %></strong>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">프로젝트 수</span>
+              <strong><%= projects.length %></strong>
+            </article>
+          </section>
+
+          <section class="content-grid">
+            <section class="content-stack">
+              <article class="panel-card">
+                <div class="panel-header">
                   <div>
-                    <p class="eyebrow">Quick Start</p>
-                    <h2>바로 시작</h2>
+                    <p class="section-tag">Quick Actions</p>
+                    <h2>바로 실행</h2>
                   </div>
-                  <a class="result-link" href="/workspace/create">새 프로젝트 열기</a>
+                  <a class="inline-link" href="/workspace/projects">전체 프로젝트 보기</a>
                 </div>
-                <div class="spotlight-grid">
-                  <div class="soft-panel">
-                    <h3>주제부터 대본까지 자동</h3>
-                    <p>프로젝트를 만든 뒤 자동 버튼 한 번으로 소재 수집과 대본 초안을 만듭니다.</p>
-                  </div>
-                  <div class="soft-panel">
-                    <h3>수동 보정 가능</h3>
-                    <p>각 단계 화면에서 주제, 리서치, 대본, 장면을 직접 수정할 수 있습니다.</p>
-                  </div>
+                <div class="action-grid">
+                  <a class="action-card" href="/workspace/create">
+                    <strong>새 프로젝트 생성</strong>
+                    <p>주제, 톤, 채널, 예약 시간을 먼저 등록합니다.</p>
+                  </a>
+                  <a class="action-card" href="/workspace/channels">
+                    <strong>업로드 채널 연결</strong>
+                    <p>n8n 웹훅과 유튜브 업로드 채널 정보를 관리합니다.</p>
+                  </a>
                 </div>
               </article>
 
-              <article class="dashboard-card">
-                <div class="card-header">
+              <article class="panel-card">
+                <div class="panel-header">
                   <div>
-                    <p class="eyebrow">Recent</p>
+                    <p class="section-tag">Recent Projects</p>
                     <h2>최근 프로젝트</h2>
                   </div>
-                  <a class="result-link" href="/workspace/projects">전체 보기</a>
                 </div>
-
-                <div class="project-board">
+                <div class="list-stack">
                   <% if (!projects.length) { %>
-                    <div class="empty-board">
-                      <strong>아직 프로젝트가 없습니다.</strong>
-                      <p>새 프로젝트 화면에서 첫 워크플로우를 생성하면 여기 표시됩니다.</p>
+                    <div class="empty-card">
+                      <strong>프로젝트가 없습니다.</strong>
+                      <p>제작 시작 화면에서 첫 프로젝트를 생성하십시오.</p>
                     </div>
                   <% } %>
-
-                  <% projects.slice(0, 4).forEach((project) => { %>
-                    <a class="project-tile" href="/projects/<%= project.id %>/topic">
+                  <% projects.slice(0, 5).forEach((project) => { %>
+                    <a class="list-row" href="/projects/<%= project.id %>/topic">
                       <div>
                         <strong><%= project.topic %></strong>
                         <p><%= project.language %> · <%= project.tone %> · <%= project.format %></p>
                       </div>
-                      <span class="badge <%= project.status %>"><%= project.status %></span>
+                      <span class="status-pill <%= project.status %>"><%= project.status %></span>
                     </a>
                   <% }) %>
                 </div>
               </article>
             </section>
 
-            <aside class="dashboard-column side-column">
-              <article class="dashboard-card compact-card">
-                <div class="card-header">
+            <aside class="content-stack narrow-stack">
+              <article class="panel-card">
+                <div class="panel-header">
                   <div>
-                    <p class="eyebrow">Flow</p>
-                    <h2>작업 단계</h2>
+                    <p class="section-tag">Production Flow</p>
+                    <h2>작업 흐름</h2>
                   </div>
                 </div>
-
-                <div class="timeline-card">
-                  <div class="timeline-item done">
-                    <span class="timeline-dot"></span>
+                <div class="timeline-stack">
+                  <div class="timeline-row done">
+                    <span class="timeline-bullet"></span>
                     <div>
-                      <strong>주제 설정</strong>
-                      <p>언어, 톤, 비율, 채널과 예약값을 먼저 고정합니다.</p>
+                      <strong>기획 입력</strong>
+                      <p>주제, 언어, 톤, 채널, 예약값을 정합니다.</p>
                     </div>
                   </div>
-                  <div class="timeline-item">
-                    <span class="timeline-dot"></span>
+                  <div class="timeline-row">
+                    <span class="timeline-bullet"></span>
                     <div>
-                      <strong>리서치와 대본</strong>
-                      <p>자동 수집과 자동 대본 생성 후 바로 수동 보정합니다.</p>
+                      <strong>자동 초안 생성</strong>
+                      <p>트렌드 수집과 대본 생성을 자동으로 처리합니다.</p>
                     </div>
                   </div>
-                  <div class="timeline-item">
-                    <span class="timeline-dot"></span>
+                  <div class="timeline-row">
+                    <span class="timeline-bullet"></span>
                     <div>
-                      <strong>장면과 렌더</strong>
-                      <p>장면 단위 재생성과 최종 렌더 결과를 같은 흐름에서 확인합니다.</p>
+                      <strong>장면과 결과물 확인</strong>
+                      <p>장면 카드, 렌더 결과, 업로드 패키지를 관리합니다.</p>
                     </div>
                   </div>
                 </div>
@@ -157,119 +154,103 @@
         <% } %>
 
         <% if (activeHomeSection === 'create') { %>
-          <section class="hero-board home-hero">
+          <section class="topbar-card">
             <div>
-              <p class="eyebrow">Create</p>
-              <h1>새 프로젝트 만들기</h1>
-              <p class="sub">주제와 기본 설정을 먼저 만들고, 이후 프로젝트 상세 화면에서 단계별로 작업합니다.</p>
+              <p class="section-tag">Create Studio</p>
+              <h1>새 프로젝트 생성</h1>
+              <p class="lead-text">유튜브 스튜디오의 업로드 상세 화면처럼, 입력은 한곳에서 정리하고 이후 단계 화면에서 세부 작업을 이어갑니다.</p>
             </div>
           </section>
 
-          <section class="dashboard-grid home-grid single-main-grid">
-            <section class="dashboard-column main-column">
-              <article class="dashboard-card form-page-card">
-                <div class="card-header">
-                  <div>
-                    <p class="eyebrow">New Workflow</p>
-                    <h2>프로젝트 생성</h2>
-                  </div>
-                  <span class="pill">Auto + Manual</span>
+          <section class="content-grid single-column-grid">
+            <article class="panel-card">
+              <div class="panel-header">
+                <div>
+                  <p class="section-tag">Project Setup</p>
+                  <h2>기본 정보 입력</h2>
                 </div>
+                <span class="status-chip">Auto + Manual</span>
+              </div>
 
-                <form class="form-grid dashboard-form" action="/projects" method="post" enctype="multipart/form-data">
-                  <label>주제
-                    <input type="text" name="topic" placeholder="예: 수면의 질을 높이는 습관" required />
-                  </label>
-
-                  <label>언어
-                    <select name="language">
-                      <option value="ko">한국어</option>
-                      <option value="en">영어</option>
-                      <option value="ja">일본어</option>
-                    </select>
-                  </label>
-
-                  <label>톤
-                    <input type="text" name="tone" value="정보형" />
-                  </label>
-
-                  <label>화면 비율
-                    <select name="format">
-                      <option value="portrait">세로형 9:16</option>
-                      <option value="landscape">가로형 16:9</option>
-                    </select>
-                  </label>
-
-                  <label>채널
-                    <select name="channelId">
-                      <option value="">선택 안 함</option>
-                      <% channels.forEach((channel) => { %>
-                        <option value="<%= channel.id %>"><%= channel.name %></option>
-                      <% }) %>
-                    </select>
-                  </label>
-
-                  <label>예약 시작
-                    <input type="datetime-local" name="scheduledAt" />
-                  </label>
-
-                  <label class="wide">추가 지시
-                    <input type="text" name="customPrompt" placeholder="예: 차분하고 신뢰감 있게" />
-                  </label>
-
-                  <label>스타일 레퍼런스
-                    <input type="file" name="styleReference" accept="image/*" />
-                  </label>
-
-                  <label>BGM 파일
-                    <input type="file" name="bgmFile" accept="audio/*" />
-                  </label>
-
-                  <label class="wide">워터마크
-                    <input type="file" name="watermarkFile" accept="image/*" />
-                  </label>
-
-                  <div class="wide form-actions">
-                    <button type="submit">프로젝트 시작</button>
-                  </div>
-                </form>
-              </article>
-            </section>
+              <form class="form-grid studio-form" action="/projects" method="post" enctype="multipart/form-data">
+                <label>주제
+                  <input type="text" name="topic" placeholder="예: 수면의 질을 높이는 습관" required />
+                </label>
+                <label>언어
+                  <select name="language">
+                    <option value="ko">한국어</option>
+                    <option value="en">영어</option>
+                    <option value="ja">일본어</option>
+                  </select>
+                </label>
+                <label>톤
+                  <input type="text" name="tone" value="정보형" />
+                </label>
+                <label>화면 비율
+                  <select name="format">
+                    <option value="portrait">세로형 9:16</option>
+                    <option value="landscape">가로형 16:9</option>
+                  </select>
+                </label>
+                <label>채널
+                  <select name="channelId">
+                    <option value="">선택 안 함</option>
+                    <% channels.forEach((channel) => { %>
+                      <option value="<%= channel.id %>"><%= channel.name %></option>
+                    <% }) %>
+                  </select>
+                </label>
+                <label>예약 시작
+                  <input type="datetime-local" name="scheduledAt" />
+                </label>
+                <label class="wide">추가 지시
+                  <input type="text" name="customPrompt" placeholder="예: 차분하고 신뢰감 있게" />
+                </label>
+                <label>스타일 레퍼런스
+                  <input type="file" name="styleReference" accept="image/*" />
+                </label>
+                <label>BGM 파일
+                  <input type="file" name="bgmFile" accept="audio/*" />
+                </label>
+                <label class="wide">워터마크
+                  <input type="file" name="watermarkFile" accept="image/*" />
+                </label>
+                <div class="wide form-actions">
+                  <button type="submit">프로젝트 시작</button>
+                </div>
+              </form>
+            </article>
           </section>
         <% } %>
 
         <% if (activeHomeSection === 'channels') { %>
-          <section class="hero-board home-hero">
+          <section class="topbar-card">
             <div>
-              <p class="eyebrow">Channels</p>
+              <p class="section-tag">Channels</p>
               <h1>업로드 채널 관리</h1>
-              <p class="sub">유튜브 업로드용 웹훅 채널을 등록하고 현재 연결 상태를 관리합니다.</p>
+              <p class="lead-text">유튜브 업로드 자동화를 위한 채널과 웹훅 연결을 한곳에서 관리합니다.</p>
             </div>
           </section>
 
-          <section class="dashboard-grid home-grid">
-            <section class="dashboard-column main-column">
-              <article class="dashboard-card form-page-card">
-                <div class="card-header">
+          <section class="content-grid">
+            <section class="content-stack">
+              <article class="panel-card">
+                <div class="panel-header">
                   <div>
-                    <p class="eyebrow">Add Channel</p>
+                    <p class="section-tag">Add Channel</p>
                     <h2>채널 등록</h2>
                   </div>
                 </div>
-
-                <form class="form-grid single-form" action="/channels" method="post">
+                <form class="form-grid single-form studio-form" action="/channels" method="post">
                   <label>채널 이름
                     <input type="text" name="name" placeholder="메인 유튜브 채널" />
                   </label>
-
                   <label>플랫폼
                     <input type="text" name="platform" value="youtube" />
                   </label>
-
                   <label>업로드 웹훅 URL
                     <input type="text" name="uploadWebhookUrl" placeholder="n8n webhook URL" />
                   </label>
-
                   <div class="form-actions">
                     <button type="submit">채널 저장</button>
                   </div>
@@ -277,30 +258,28 @@
               </article>
             </section>
 
-            <aside class="dashboard-column side-column">
-              <article class="dashboard-card compact-card">
-                <div class="card-header">
+            <aside class="content-stack narrow-stack">
+              <article class="panel-card">
+                <div class="panel-header">
                   <div>
-                    <p class="eyebrow">Saved Channels</p>
+                    <p class="section-tag">Saved</p>
                     <h2>등록 채널</h2>
                   </div>
                 </div>
-
-                <div class="project-board">
+                <div class="list-stack">
                   <% if (!channels.length) { %>
-                    <div class="empty-board">
+                    <div class="empty-card">
                       <strong>등록된 채널이 없습니다.</strong>
-                      <p>먼저 웹훅 채널을 추가한 뒤 프로젝트에 연결하십시오.</p>
+                      <p>먼저 업로드 채널을 추가하십시오.</p>
                     </div>
                   <% } %>
-
                   <% channels.forEach((channel) => { %>
-                    <div class="project-tile static-tile">
+                    <div class="list-row static-row">
                       <div>
                         <strong><%= channel.name %></strong>
                         <p><%= channel.platform %></p>
                       </div>
-                      <span class="badge"><%= channel.upload_webhook_url ? 'webhook' : 'local' %></span>
+                      <span class="status-pill"><%= channel.upload_webhook_url ? 'webhook' : 'local' %></span>
                     </div>
                   <% }) %>
                 </div>
@@ -310,44 +289,40 @@
         <% } %>
 
         <% if (activeHomeSection === 'projects') { %>
-          <section class="hero-board home-hero">
+          <section class="topbar-card">
             <div>
-              <p class="eyebrow">Projects</p>
-              <h1>프로젝트 목록</h1>
-              <p class="sub">생성한 프로젝트를 다시 열어서 단계별 편집 화면으로 이동합니다.</p>
+              <p class="section-tag">Project Library</p>
+              <h1>프로젝트 보관함</h1>
+              <p class="lead-text">콘텐츠 목록처럼 프로젝트를 다시 열고, 각 단계 상세 화면으로 이동합니다.</p>
             </div>
           </section>
 
-          <section class="dashboard-grid home-grid single-main-grid">
-            <section class="dashboard-column main-column">
-              <article class="dashboard-card">
-                <div class="card-header">
-                  <div>
-                    <p class="eyebrow">All Projects</p>
-                    <h2>전체 프로젝트</h2>
+          <section class="content-grid single-column-grid">
+            <article class="panel-card">
+              <div class="panel-header">
+                <div>
+                  <p class="section-tag">All Projects</p>
+                  <h2>전체 프로젝트</h2>
+                </div>
+              </div>
+              <div class="list-stack">
+                <% if (!projects.length) { %>
+                  <div class="empty-card">
+                    <strong>프로젝트가 없습니다.</strong>
+                    <p>제작 시작 화면에서 첫 프로젝트를 생성하십시오.</p>
                   </div>
-                </div>
-
-                <div class="project-board">
-                  <% if (!projects.length) { %>
-                    <div class="empty-board">
-                      <strong>아직 프로젝트가 없습니다.</strong>
-                      <p>새 프로젝트 화면에서 첫 워크플로우를 생성하십시오.</p>
+                <% } %>
+                <% projects.forEach((project) => { %>
+                  <a class="list-row large-row" href="/projects/<%= project.id %>/topic">
+                    <div>
+                      <strong><%= project.topic %></strong>
+                      <p><%= project.language %> · <%= project.tone %> · <%= project.format %></p>
                     </div>
-                  <% } %>
-
-                  <% projects.forEach((project) => { %>
-                    <a class="project-tile project-tile-large" href="/projects/<%= project.id %>/topic">
-                      <div>
-                        <strong><%= project.topic %></strong>
-                        <p><%= project.language %> · <%= project.tone %> · <%= project.format %></p>
-                      </div>
-                      <span class="badge <%= project.status %>"><%= project.status %></span>
-                    </a>
-                  <% }) %>
-                </div>
-              </article>
-            </section>
+                    <span class="status-pill <%= project.status %>"><%= project.status %></span>
+                  </a>
+                <% }) %>
+              </div>
+            </article>
           </section>
         <% } %>
       </main>

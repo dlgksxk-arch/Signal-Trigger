@@ -7,44 +7,47 @@
     <link rel="stylesheet" href="/public/app.css" />
     <script src="/public/app.js" defer></script>
   </head>
-  <body>
-    <div class="dashboard-shell workflow-shell">
-      <aside class="dashboard-sidebar workflow-sidebar">
-        <div class="sidebar-brand workflow-brand">
-          <div class="brand-mark">LF</div>
-          <div class="workflow-brand-copy">
-            <strong>Workflow</strong>
+  <body class="app-body dark-body">
+    <div class="studio-shell">
+      <aside class="studio-sidebar workflow-sidebar">
+        <div class="studio-logo">
+          <div class="studio-logo-mark">LF</div>
+          <div>
+            <strong>Production Flow</strong>
             <span><%= versionLabel %></span>
           </div>
         </div>
 
-        <nav class="sidebar-menu workflow-step-menu">
-          <a class="menu-item workflow-home-link" href="/workspace/dashboard">
-            <span class="menu-dot"></span>
-            <span>대시보드</span>
+        <nav class="studio-nav workflow-nav">
+          <a class="studio-nav-item" href="/workspace/dashboard">
+            <span class="studio-nav-dot"></span>
+            <div>
+              <strong>Studio 대시보드</strong>
+              <span>Back</span>
+            </div>
           </a>
 
           <% steps.forEach((step) => { %>
             <a
-              class="menu-item workflow-step-link <%= step.active ? 'active' : '' %>"
+              class="studio-nav-item workflow-nav-item <%= step.active ? 'active' : '' %>"
               href="<%= step.href %>"
               data-workflow-link
               data-step-target="<%= step.key %>"
               data-step-label="<%= step.label %>"
               data-step-href="<%= step.href %>"
             >
-              <span class="workflow-step-badge"><%= step.label.split('. ')[0] %></span>
-              <div class="workflow-step-copy">
+              <span class="workflow-step-marker"><%= step.label.split('. ')[0] %></span>
+              <div>
                 <strong><%= step.shortLabel %></strong>
-                <span><%= step.done ? '준비됨' : '대기 중' %></span>
+                <span><%= step.done ? '완료 또는 준비됨' : '작업 대기' %></span>
               </div>
             </a>
           <% }) %>
         </nav>
 
-        <section class="sidebar-note workflow-sidebar-note">
-          <p class="eyebrow">프로젝트 상태</p>
-          <ul class="sidebar-list workflow-list">
+        <section class="studio-side-card">
+          <p class="section-tag">Project</p>
+          <ul class="studio-side-list">
             <li>상태: <strong><%= project.status %></strong></li>
             <li>채널: <strong><%= project.channel_name || '미선택' %></strong></li>
             <li>예약: <strong><%= project.scheduled_at || '없음' %></strong></li>
@@ -53,48 +56,42 @@
         </section>
       </aside>
 
-      <main class="dashboard-main workflow-page" data-active-step="<%= activeStep %>">
-        <section class="hero-board workflow-hero">
+      <main class="studio-main workflow-page" data-active-step="<%= activeStep %>">
+        <section class="topbar-card">
           <div>
-            <a class="back-link" href="/workspace/projects">프로젝트 목록으로</a>
-            <p class="eyebrow">Project Detail</p>
+            <a class="back-link" href="/workspace/projects">프로젝트 보관함으로</a>
+            <p class="section-tag">Project Editor</p>
             <h1><%= project.topic %></h1>
-            <p class="sub">좌측 단계 탭을 누르면 각 단계 화면으로 바로 이동하고, 현재 페이지 안에서도 즉시 전환됩니다.</p>
+            <p class="lead-text">유튜브 스튜디오의 영상 상세 편집처럼, 좌측에서 작업 단계를 고르고 중앙에서 해당 단계만 집중해서 편집합니다.</p>
           </div>
-
-          <div class="workflow-hero-summary">
-            <div class="summary-block accent-block">
-              <span class="summary-label">현재 단계</span>
+          <div class="editor-summary">
+            <div class="metric-card primary-metric">
+              <span class="metric-label">현재 단계</span>
               <strong data-current-step-label><%= steps.find((item) => item.active)?.label || '1. 주제 설정' %></strong>
             </div>
-            <div class="summary-block">
-              <span class="summary-label">장면 수</span>
+            <div class="metric-card">
+              <span class="metric-label">장면 수</span>
               <strong><%= project.scenes.length %></strong>
-            </div>
-            <div class="summary-block">
-              <span class="summary-label">비율</span>
-              <strong><%= project.format %></strong>
             </div>
           </div>
         </section>
 
-        <section class="detail-grid workflow-detail-grid">
-          <section class="detail-main workflow-panels">
-            <article class="dashboard-card workflow-panel <%= activeStep === 'topic' ? 'active' : '' %>" data-step-panel="topic">
-              <div class="card-header">
+        <section class="content-grid editor-grid">
+          <section class="content-stack workflow-panels">
+            <article class="panel-card workflow-panel <%= activeStep === 'topic' ? 'active' : '' %>" data-step-panel="topic">
+              <div class="panel-header">
                 <div>
-                  <p class="eyebrow">1단계</p>
+                  <p class="section-tag">Step 1</p>
                   <h2>주제 설정</h2>
-                  <p class="card-description">프로젝트의 기본 방향을 먼저 고정하는 화면입니다.</p>
+                  <p class="card-copy">영상 제작의 기본 축을 먼저 정합니다.</p>
                 </div>
-                <span class="pill">기본 입력</span>
+                <span class="status-chip">기본 입력</span>
               </div>
 
-              <form class="form-grid dashboard-form" action="/projects/<%= project.id %>/settings" method="post">
+              <form class="form-grid studio-form" action="/projects/<%= project.id %>/settings" method="post">
                 <label>주제
                   <input type="text" name="topic" value="<%= project.topic %>" />
                 </label>
-
                 <label>언어
                   <select name="language">
                     <option value="ko" <%= project.language === 'ko' ? 'selected' : '' %>>한국어</option>
@@ -102,18 +99,15 @@
                     <option value="ja" <%= project.language === 'ja' ? 'selected' : '' %>>일본어</option>
                   </select>
                 </label>
-
                 <label>톤
                   <input type="text" name="tone" value="<%= project.tone %>" />
                 </label>
-
                 <label>화면 비율
                   <select name="format">
                     <option value="portrait" <%= project.format === 'portrait' ? 'selected' : '' %>>세로형 9:16</option>
                     <option value="landscape" <%= project.format === 'landscape' ? 'selected' : '' %>>가로형 16:9</option>
                   </select>
                 </label>
-
                 <label>채널
                   <select name="channelId">
                     <option value="">선택 안 함</option>
@@ -122,60 +116,54 @@
                     <% }) %>
                   </select>
                 </label>
-
                 <label>예약 시작
                   <input type="datetime-local" name="scheduledAt" value="<%= project.scheduled_at ? project.scheduled_at.slice(0, 16) : '' %>" />
                 </label>
-
                 <label class="wide">추가 지시
                   <input type="text" name="customPrompt" value="<%= project.settings?.customPrompt || '' %>" />
                 </label>
-
                 <div class="wide form-actions">
                   <button type="submit">주제 저장</button>
                 </div>
               </form>
             </article>
 
-            <article class="dashboard-card workflow-panel <%= activeStep === 'research' ? 'active' : '' %>" data-step-panel="research">
-              <div class="card-header">
+            <article class="panel-card workflow-panel <%= activeStep === 'research' ? 'active' : '' %>" data-step-panel="research">
+              <div class="panel-header">
                 <div>
-                  <p class="eyebrow">2단계</p>
+                  <p class="section-tag">Step 2</p>
                   <h2>소재 발굴</h2>
-                  <p class="card-description">자동 수집 후 필요한 부분만 직접 보정하는 화면입니다.</p>
+                  <p class="card-copy">트렌드 수집 결과를 보고 직접 정리합니다.</p>
                 </div>
                 <form action="/projects/<%= project.id %>/research/auto" method="post">
                   <button type="submit">자동 수집</button>
                 </form>
               </div>
 
-              <form class="form-grid dashboard-form" action="/projects/<%= project.id %>/research/manual" method="post">
+              <form class="form-grid studio-form" action="/projects/<%= project.id %>/research/manual" method="post">
                 <label class="wide">요약
                   <textarea name="summary"><%= researchSummaryText %></textarea>
                 </label>
-
                 <label class="wide">아이디어 목록
                   <textarea name="ideas"><%= researchIdeasText %></textarea>
                 </label>
-
                 <label class="wide">수동 메모
                   <textarea name="manualNotes"><%= researchNotesText %></textarea>
                 </label>
-
                 <div class="wide form-actions">
                   <button type="submit">리서치 저장</button>
                 </div>
               </form>
             </article>
 
-            <article class="dashboard-card workflow-panel <%= activeStep === 'script' ? 'active' : '' %>" data-step-panel="script">
-              <div class="card-header">
+            <article class="panel-card workflow-panel <%= activeStep === 'script' ? 'active' : '' %>" data-step-panel="script">
+              <div class="panel-header">
                 <div>
-                  <p class="eyebrow">3단계</p>
+                  <p class="section-tag">Step 3</p>
                   <h2>대본 작성</h2>
-                  <p class="card-description">자동 초안 생성 후 최종 문장만 직접 정리하는 화면입니다.</p>
+                  <p class="card-copy">자동 초안과 수동 편집을 같은 화면에서 처리합니다.</p>
                 </div>
-                <div class="hero-actions">
+                <div class="form-actions">
                   <form action="/projects/<%= project.id %>/bootstrap" method="post">
                     <button type="submit">주제부터 대본까지 자동</button>
                   </form>
@@ -185,37 +173,35 @@
                 </div>
               </div>
 
-              <form class="form-grid dashboard-form" action="/projects/<%= project.id %>/script/manual" method="post">
+              <form class="form-grid studio-form" action="/projects/<%= project.id %>/script/manual" method="post">
                 <label class="wide">대본
                   <textarea name="script" class="tall-textarea"><%= project.script_text || '' %></textarea>
                 </label>
-
                 <div class="wide form-actions">
                   <button type="submit">대본 저장</button>
                 </div>
               </form>
             </article>
 
-            <article class="dashboard-card workflow-panel <%= activeStep === 'scenes' ? 'active' : '' %>" data-step-panel="scenes">
-              <div class="card-header">
+            <article class="panel-card workflow-panel <%= activeStep === 'scenes' ? 'active' : '' %>" data-step-panel="scenes">
+              <div class="panel-header">
                 <div>
-                  <p class="eyebrow">4단계</p>
+                  <p class="section-tag">Step 4</p>
                   <h2>장면 편집</h2>
-                  <p class="card-description">장면 미리보기와 장면 단위 재생성을 처리하는 화면입니다.</p>
+                  <p class="card-copy">장면 카드와 장면 단위 재생성을 관리합니다.</p>
                 </div>
                 <form action="/projects/<%= project.id %>/run" method="post">
                   <button type="submit">장면 생성 또는 갱신</button>
                 </form>
               </div>
 
-              <div class="scene-grid">
+              <div class="card-grid">
                 <% if (!project.scenes.length) { %>
-                  <div class="empty-board">
+                  <div class="empty-card">
                     <strong>아직 장면이 없습니다.</strong>
-                    <p>렌더 실행 후 장면 카드가 생성됩니다.</p>
+                    <p>렌더 실행 후 장면 카드가 여기에 생성됩니다.</p>
                   </div>
                 <% } %>
-
                 <% project.scenes.forEach((scene, index) => { %>
                   <article class="scene-card">
                     <% if (scene.imagePath) { %>
@@ -232,98 +218,108 @@
               </div>
             </article>
 
-            <article class="dashboard-card workflow-panel <%= activeStep === 'render' ? 'active' : '' %>" data-step-panel="render">
-              <div class="card-header">
+            <article class="panel-card workflow-panel <%= activeStep === 'render' ? 'active' : '' %>" data-step-panel="render">
+              <div class="panel-header">
                 <div>
-                  <p class="eyebrow">5단계</p>
+                  <p class="section-tag">Step 5</p>
                   <h2>렌더 결과</h2>
-                  <p class="card-description">완성 영상, 썸네일, 자막 파일을 확인하는 화면입니다.</p>
+                  <p class="card-copy">영상, 썸네일, 자막 결과를 확인합니다.</p>
                 </div>
                 <form action="/projects/<%= project.id %>/run" method="post">
                   <button type="submit">전체 다시 렌더</button>
                 </form>
               </div>
 
-              <div class="link-grid">
+              <div class="action-grid">
                 <% if (project.output?.videoPath) { %>
-                  <a class="result-link" href="<%= project.output.videoPath.replace(/^.*?storage/, '/storage') %>" target="_blank">완성 영상 열기</a>
+                  <a class="action-card" href="<%= project.output.videoPath.replace(/^.*?storage/, '/storage') %>" target="_blank">
+                    <strong>완성 영상 열기</strong>
+                    <p>렌더된 최종 mp4 파일을 바로 엽니다.</p>
+                  </a>
                 <% } %>
                 <% if (project.output?.thumbnailPath) { %>
-                  <a class="result-link" href="<%= project.output.thumbnailPath.replace(/^.*?storage/, '/storage') %>" target="_blank">썸네일 열기</a>
+                  <a class="action-card" href="<%= project.output.thumbnailPath.replace(/^.*?storage/, '/storage') %>" target="_blank">
+                    <strong>썸네일 열기</strong>
+                    <p>생성된 썸네일 파일을 확인합니다.</p>
+                  </a>
                 <% } %>
                 <% if (project.output?.subtitlesPath) { %>
-                  <a class="result-link" href="<%= project.output.subtitlesPath.replace(/^.*?storage/, '/storage') %>" target="_blank">자막 열기</a>
+                  <a class="action-card" href="<%= project.output.subtitlesPath.replace(/^.*?storage/, '/storage') %>" target="_blank">
+                    <strong>자막 열기</strong>
+                    <p>생성된 자막 파일을 확인합니다.</p>
+                  </a>
                 <% } %>
                 <% if (!project.output?.videoPath && !project.output?.thumbnailPath && !project.output?.subtitlesPath) { %>
-                  <div class="empty-board">
-                    <strong>렌더 결과가 아직 없습니다.</strong>
-                    <p>전체 렌더를 실행한 뒤 이 화면에서 결과 파일을 확인하십시오.</p>
+                  <div class="empty-card">
+                    <strong>렌더 결과가 없습니다.</strong>
+                    <p>전체 렌더를 실행한 뒤 다시 확인하십시오.</p>
                   </div>
                 <% } %>
               </div>
             </article>
 
-            <article class="dashboard-card workflow-panel stack-card <%= activeStep === 'publish' ? 'active' : '' %>" data-step-panel="publish">
-              <div class="card-header">
+            <article class="panel-card workflow-panel <%= activeStep === 'publish' ? 'active' : '' %>" data-step-panel="publish">
+              <div class="panel-header">
                 <div>
-                  <p class="eyebrow">6단계</p>
+                  <p class="section-tag">Step 6</p>
                   <h2>업로드 및 연동</h2>
-                  <p class="card-description">Google Vids 대응 자산과 GitHub 연결 상태를 확인하는 화면입니다.</p>
+                  <p class="card-copy">외부 연동과 도우미 기능을 마무리합니다.</p>
                 </div>
               </div>
 
-              <section class="soft-panel">
-                <h3>Google Vids 자산</h3>
-                <% googleVidsNotes.forEach((note) => { %>
-                  <p><%= note %></p>
-                <% }) %>
-                <a class="result-link" href="/api/projects/<%= project.id %>/google-vids-package" target="_blank">Google Vids용 자산 패키지 JSON 열기</a>
-              </section>
+              <div class="content-stack">
+                <section class="soft-card">
+                  <h3>Google Vids 자산</h3>
+                  <% googleVidsNotes.forEach((note) => { %>
+                    <p><%= note %></p>
+                  <% }) %>
+                  <a class="inline-link" href="/api/projects/<%= project.id %>/google-vids-package" target="_blank">Google Vids용 자산 패키지 JSON 열기</a>
+                </section>
 
-              <section class="soft-panel">
-                <h3>GitHub 연결 상태</h3>
-                <p>로컬 Git 준비: <strong><%= githubStatus.localGitReady ? '완료' : '미완료' %></strong></p>
-                <p>원격 GitHub 연결: <strong><%= githubStatus.remoteConnected ? '완료' : '대기' %></strong></p>
-                <p><%= githubStatus.note %></p>
-              </section>
+                <section class="soft-card">
+                  <h3>GitHub 연결 상태</h3>
+                  <p>로컬 Git 준비: <strong><%= githubStatus.localGitReady ? '완료' : '미완료' %></strong></p>
+                  <p>원격 GitHub 연결: <strong><%= githubStatus.remoteConnected ? '완료' : '대기' %></strong></p>
+                  <p><%= githubStatus.note %></p>
+                </section>
 
-              <section class="soft-panel">
-                <h3>도움말 챗봇</h3>
-                <form class="form-grid single-form" action="/projects/<%= project.id %>/help" method="post">
-                  <label>질문
-                    <input type="text" name="question" placeholder="예: 업로드 전에 확인할 것은?" />
-                  </label>
-                  <div class="form-actions">
-                    <button type="submit">질문하기</button>
-                  </div>
-                </form>
-                <% if (typeof helpAnswer !== 'undefined') { %>
-                  <p class="help-answer"><%= helpAnswer %></p>
-                <% } %>
-              </section>
+                <section class="soft-card">
+                  <h3>도움말 챗봇</h3>
+                  <form class="form-grid single-form studio-form" action="/projects/<%= project.id %>/help" method="post">
+                    <label>질문
+                      <input type="text" name="question" placeholder="예: 업로드 전에 확인할 것은?" />
+                    </label>
+                    <div class="form-actions">
+                      <button type="submit">질문하기</button>
+                    </div>
+                  </form>
+                  <% if (typeof helpAnswer !== 'undefined') { %>
+                    <p class="help-answer"><%= helpAnswer %></p>
+                  <% } %>
+                </section>
+              </div>
             </article>
           </section>
 
-          <aside class="detail-side">
-            <article class="dashboard-card compact-card inspector-card">
-              <div class="card-header">
+          <aside class="content-stack narrow-stack">
+            <article class="panel-card sticky-panel">
+              <div class="panel-header">
                 <div>
-                  <p class="eyebrow">Inspector</p>
-                  <h2>작업 요약</h2>
+                  <p class="section-tag">Inspector</p>
+                  <h2>프로젝트 요약</h2>
                 </div>
               </div>
-
-              <div class="summary-stack">
-                <div class="summary-block accent-block">
-                  <span class="summary-label">프로젝트 상태</span>
+              <div class="mini-metrics">
+                <div class="metric-card primary-metric">
+                  <span class="metric-label">상태</span>
                   <strong><%= project.status %></strong>
                 </div>
-                <div class="summary-block">
-                  <span class="summary-label">언어</span>
+                <div class="metric-card">
+                  <span class="metric-label">언어</span>
                   <strong><%= project.language %></strong>
                 </div>
-                <div class="summary-block">
-                  <span class="summary-label">톤</span>
+                <div class="metric-card">
+                  <span class="metric-label">톤</span>
                   <strong><%= project.tone %></strong>
                 </div>
               </div>
