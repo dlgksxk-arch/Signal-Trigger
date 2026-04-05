@@ -490,7 +490,7 @@ function cleanupGeneratedScript(script) {
 const editorialScenePromptBase = [
   'You are a visual prompt generator for a YouTube longform channel called "Signal Trigger."',
   "",
-  "Your job is to turn a narration script into scene-by-scene AI image prompts that feel bold, pop, dramatic, eye-catching, and highly clickable.",
+  "Your job is to turn a narration script into scene-by-scene AI image prompts that feel bold, trendy, pop, dramatic, eye-catching, and highly clickable.",
   "",
   "This is NOT bland historical illustration.",
   "This is NOT quiet documentary realism.",
@@ -505,20 +505,21 @@ const editorialScenePromptBase = [
   "- high emotional tension",
   "- cinematic framing",
   "- sharp, modern, attention-grabbing visual storytelling",
+  "- fast, trendy visual energy that works for viewers in their 20s and 30s",
   "",
   "Core rules:",
   "1. Each prompt must clearly match the meaning and mood of the script section.",
   "2. The image must feel visually exciting, not flat, sleepy, or generic.",
   "3. Use stronger composition, stronger character reactions, stronger symbolic imagery, and stronger tension.",
   "4. The style must stay serious, sharp, and politically charged, but more pop and more visually aggressive than a normal editorial illustration.",
-  "5. Use vivid contrast and striking focal points where appropriate, especially with tones like deep red, black, gold, orange glow, cold blue contrast, and shadow-heavy lighting.",
+  "5. Use vivid contrast and striking focal points where appropriate, especially with tones like deep red, black, gold, orange glow, cold blue contrast, shadow-heavy lighting, and sleek modern poster energy.",
   "6. Some scenes should deliberately feel more provocative, dangerous, tense, or shocking if it fits the script.",
   "7. Use visual metaphor when it makes the scene more powerful, but keep it clear and readable.",
   "8. If the script is abstract, transform it into a symbolic but instantly understandable visual.",
   "9. Keep the look consistent across the whole video.",
   "10. Avoid childish cartoon style, goofy comedy, meme energy, anime style, superhero comic style, fantasy style, or random surrealism.",
   "11. Avoid weak compositions, empty backgrounds, dull staging, lifeless faces, and passive scenes.",
-  "12. The images should feel like they are made to stop the scroll and pull the viewer into the story.",
+  "12. The images should feel like they are made to stop the scroll and pull the viewer into the story instantly.",
   "13. Output prompts only.",
   "14. Write in English.",
   "",
@@ -542,7 +543,7 @@ const editorialScenePromptBase = [
   "- powerful silhouette staging",
   "",
   "Global visual baseline for every prompt:",
-  "bold editorial political cartoon, pop visual impact, dramatic composition, sharp linework, strong contrast, vivid focal point, serious geopolitical tone, cinematic lighting, textured shading, striking expressions, clean subject separation, highly clickable image design, emotionally charged atmosphere",
+  "bold editorial political cartoon, trendy pop visual impact, dramatic composition, sharp linework, strong contrast, vivid focal point, serious geopolitical tone, cinematic lighting, textured shading, striking expressions, clean subject separation, highly clickable image design, emotionally charged atmosphere, modern poster-like energy",
   "",
   "Variety rule:",
   "Avoid weak portrait repetition. Use diverse visual subject matter such as maps, riots, borders, war rooms, ports, military hardware, collapsing monuments, pressured flags, shattered agreements, trade routes, industry, archives, and city power centers whenever they better fit the narration.",
@@ -612,18 +613,18 @@ function buildFallbackParagraphs({ topic, language, research, customPrompt, tone
 
   if (language === "en") {
     const paragraphs = [
-      `This video breaks down ${safeTopic} across a full ${minutes}-minute runtime as one continuous narration.`,
-      `We connect ${safeTopic} to live audience signals such as ${ideas.join(", ") || "recent viewer questions"} so the video feels timely instead of generic.`
+      `${safeTopic} did not start where most people think it did, and the part that still drives it now is older, darker, and harder to forget.`,
+      `To understand why ${safeTopic} matters right now, we have to follow the pressure trail through ${ideas.join(", ") || "the key old decisions people still live with"}.`
     ];
 
     for (let index = 0; index < bodyCount; index += 1) {
       const idea = ideas[index % Math.max(ideas.length, 1)] || safeTopic;
       paragraphs.push(
-        `We explain ${idea}, why it matters inside ${safeTopic}, what viewers are likely missing, and what a practical takeaway looks like in plain language.`
+        `${idea} was not just another event inside ${safeTopic}. It changed incentives, hardened memories, and pushed the next move in a way people still feel now.`
       );
     }
 
-    paragraphs.push("End by landing on the one thing viewers need to understand now, the next thing to watch, and the question that should stay in their minds.");
+    paragraphs.push(`That is why ${safeTopic} now feels less like a random headline and more like an old story reaching back for one more round.`);
 
     if (customPrompt) {
       paragraphs.push(`Additional direction: ${customPrompt}`);
@@ -683,7 +684,7 @@ export async function generateScript({ topic, tone, language, research, customPr
   const prompt = [
     'You are a master longform scriptwriter for a YouTube channel called "Signal Trigger."',
     "",
-    "Your job is to write a highly engaging 10–20 minute YouTube narration script based on a current headline and the hidden old story behind it.",
+    "Your job is to write a highly engaging 10-20 minute YouTube narration script based on a current headline and the hidden old story behind it.",
     "",
     "This is NOT a dry news explainer.",
     "This is NOT a lecture.",
@@ -691,6 +692,8 @@ export async function generateScript({ topic, tone, language, research, customPr
     "This is NOT a policy analysis.",
     "",
     "This channel tells real history like a gripping story.",
+    "The target audience is viewers in their 20s and 30s.",
+    "The script must feel smart, fast, clear, trendy, and easy to follow.",
     "",
     "The viewer should feel:",
     "\"Wait, what?\"",
@@ -720,15 +723,16 @@ export async function generateScript({ topic, tone, language, research, customPr
     "   - a forgotten decision that poisoned the future",
     "7. Write like you are telling the viewer the true story behind today’s headline — the part most people never hear.",
     "8. Keep the language clear, vivid, natural, and spoken.",
-    "9. Prioritize momentum, curiosity, emotional tension, and narrative flow over formal explanation.",
-    "10. Every paragraph should make the viewer want the next paragraph.",
-    "11. Constantly connect the past to the present headline.",
-    "12. Make cause and effect obvious:",
+    "9. Use easier spoken language, shorter sentences, and cleaner wording than a typical documentary script.",
+    "10. Prioritize momentum, curiosity, emotional tension, and narrative flow over formal explanation.",
+    "11. Every paragraph should make the viewer want the next paragraph.",
+    "12. Constantly connect the past to the present headline.",
+    "13. Make cause and effect obvious:",
     "   - what happened",
     "   - why it mattered",
     "   - who never forgot",
     "   - how it came back",
-    "13. Focus on the human core of history:",
+    "14. Focus on the human core of history:",
     "   - betrayal",
     "   - fear",
     "   - humiliation",
@@ -737,11 +741,12 @@ export async function generateScript({ topic, tone, language, research, customPr
     "   - survival",
     "   - collapse",
     "   - power",
-    "14. Avoid academic tone, bureaucratic tone, policy-paper tone, or boring news-anchor tone.",
-    "15. Avoid filler, repetition, and dead transitions.",
-    "16. Keep it serious, cinematic, and easy to follow.",
-    "17. The final section should make today’s headline feel tragic, inevitable, or deeply unsettling.",
-    "18. The ending should leave the viewer with the feeling:",
+    "15. Avoid academic tone, bureaucratic tone, policy-paper tone, or boring news-anchor tone.",
+    "16. Avoid filler, repetition, dead transitions, and overlong explanations.",
+    "17. Keep it serious, cinematic, easy to follow, and emotionally immediate.",
+    "18. Keep the pacing alive. Do not let the energy sag.",
+    "19. The final section should make today’s headline feel tragic, inevitable, or deeply unsettling.",
+    "20. The ending should leave the viewer with the feeling:",
     "\"This was never really over.\"",
     "",
     "Structure:",
@@ -762,7 +767,9 @@ export async function generateScript({ topic, tone, language, research, customPr
     "- No generic intro",
     "- No fake hype",
     "- No academic phrasing",
-    "- Make it feel intelligent, cinematic, and addictive",
+    "- Make it feel intelligent, cinematic, addictive, and easy to understand",
+    "- Keep the language simple enough that a casual viewer can follow every turn",
+    "- Favor punchy, spoken rhythm over long formal sentences",
     "",
     "Most important writing principle:",
     "Do not explain first.",
@@ -787,7 +794,8 @@ export async function generateScript({ topic, tone, language, research, customPr
   const systemPrompt = [
     "You write YouTube longform narration scripts.",
     "Return only the finished script in natural spoken English.",
-    "No bullet points. No section labels. No stage directions."
+    "No bullet points. No section labels. No stage directions.",
+    "Keep the pacing fast, the wording clear, and the tone emotionally engaging for viewers in their 20s and 30s."
   ].join("\n");
 
   try {
