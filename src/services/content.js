@@ -355,6 +355,58 @@ function buildTopicFromKeywords(prompt, language) {
   return trimTopicTitle(`${keywords.join(" ")} 지금 봐야 할 핵심 포인트`);
 }
 
+function buildBroadSubjectFromPrompt(prompt, language) {
+  const lowerPrompt = normalizeText(prompt).toLowerCase();
+
+  if (lowerPrompt.includes("geopolit")) {
+    return language === "en" ? "Geopolitics" : "지정학";
+  }
+
+  if (lowerPrompt.includes("headline") || lowerPrompt.includes("news") || lowerPrompt.includes("breaking")) {
+    return language === "en" ? "Current global news" : "국제 이슈";
+  }
+
+  if (lowerPrompt.includes("semiconductor")) {
+    return language === "en" ? "Semiconductor rivalry" : "반도체 경쟁";
+  }
+
+  if (lowerPrompt.includes("ai")) {
+    return language === "en" ? "AI power race" : "AI 경쟁";
+  }
+
+  const keywords = extractKeywords(prompt).slice(0, 4);
+  if (!keywords.length) {
+    return defaultTopicByLanguage(language);
+  }
+
+  return trimTopicTitle(keywords.join(" "), 56);
+}
+
+async function callJsonChat({ apiKey, model, baseUrl, systemPrompt, userPrompt, temperature = 0.7 }) {
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model,
+      temperature,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI request failed with ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || "";
+}
+
 export async function deriveTopicFromPrompt({
   topicPrompt,
   language,
@@ -368,8 +420,64 @@ export async function deriveTopicFromPrompt({
   }
 
   if (!isInstructionLikeTopic(prompt) && prompt.length <= 80 && isTextAlignedWithLanguage(prompt, language)) {
-    return trimTopicTitle(prompt);
+    return trimTopicTitle(prompt, 56);
   }
+
+  const broadHint = extractTopicHint(prompt, language);
+  if (broadHint && isTextAlignedWithLanguage(broadHint, language)) {
+    return trimTopicTitle(broadHint, 56);
+  }
+
+  const broadSubject = buildBroadSubjectFromPrompt(prompt, language);
+  const subjectApiKey = process.env.OPENAI_API_KEY;
+  const subjectModel = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+  const subjectBaseUrl = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
+  const outputLanguage = getOutputLanguageName(language);
+
+  if (subjectApiKey) {
+    try {
+      const raw = await callJsonChat({
+        apiKey: subjectApiKey,
+        model: subjectModel,
+        baseUrl: subjectBaseUrl,
+        temperature: 0.3,
+        systemPrompt: "Extract one broad subject from a creator brief. Do not choose a hidden angle, hook, or final episode title. Return valid JSON only.",
+        userPrompt: [
+          `Output language: ${outputLanguage}`,
+          "Return valid JSON only in this shape:",
+          '{"subject":""}',
+          "",
+          "Rules:",
+          "- return one broad seed subject only",
+          "- keep it short",
+          "- do not finalize the topic",
+          "- do not add dramatic framing",
+          "",
+          "Creator prompt:",
+          prompt
+        ].join("\n")
+      });
+      const parsed = JSON.parse(raw);
+      const subject = trimTopicTitle(parsed?.subject || "", 56);
+      if (subject) {
+        return subject;
+      }
+    } catch {
+      // fall back below
+    }
+  }
+
+  try {
+    const trends = await fetchTrendCandidates(language);
+    const selectedTrend = trimTopicTitle(pickBestTrend(prompt, trends), 56);
+    if (selectedTrend) {
+      return selectedTrend;
+    }
+  } catch {
+    // fall back below
+  }
+
+  return broadSubject || fallback || defaultTopicByLanguage(language);
 
   const specialTopic = buildTopicFromKeywords(prompt, language);
   if (specialTopic && specialTopic !== defaultTopicByLanguage(language)) {
@@ -642,7 +750,369 @@ function buildFallbackScoutTopics(resolvedTopic, trendIdeas, language) {
   });
 }
 
+function buildAngleDiscoveryPrompt({ topicPrompt, subject, language, trendIdeas }) {
+  const outputLanguage = getOutputLanguageName(language);
+
+  return [
+    'You are an angle discovery editor for a YouTube longform channel called "Signal Trigger."',
+    "",
+    "Do not finalize the topic too early.",
+    "First explore multiple hidden angles inside the subject.",
+    "Then reject obvious, generic, dry, textbook, and predictable angles.",
+    "Then choose the single best final angle for a 10-20 minute story-driven video.",
+    "",
+    "Optimize for:",
+    "- hidden angle",
+    "- story potential",
+    "- human drama",
+    "- curiosity",
+    "- less predictable framing",
+    "- easy explanation for normal viewers",
+    "",
+    "Avoid:",
+    "- dry politics",
+    "- textbook framing",
+    "- generic history summary",
+    "- safe mainstream angle",
+    "- jargon-heavy choices",
+    "",
+    "Return valid JSON only in this shape:",
+    '{"angles":[{"angleTitle":"","whyInteresting":"","humanDrama":"","hookAngle":"","curiosityScore":0,"storyPotentialScore":0,"clarityScore":0,"predictabilityScore":0}]}',
+    "",
+    `Write all text in ${outputLanguage}.`,
+    "Generate 12 angles.",
+    "",
+    "Input:",
+    `Broad subject: ${normalizeText(subject) || "none"}`,
+    `Creator seed: ${normalizeText(topicPrompt) || "none"}`,
+    `Trend signals: ${trendIdeas.join(" | ") || "none"}`
+  ].join("\n");
+}
+
+function clampScore(value) {
+  const score = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(score)) {
+    return 5;
+  }
+
+  return Math.max(1, Math.min(10, score));
+}
+
+function parseAngleDiscovery(raw) {
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed?.angles)) {
+      return [];
+    }
+
+    return parsed.angles
+      .map((item) => ({
+        angleTitle: trimTopicTitle(item?.angleTitle || "", 96),
+        whyInteresting: normalizeText(item?.whyInteresting),
+        humanDrama: normalizeText(item?.humanDrama),
+        hookAngle: normalizeText(item?.hookAngle),
+        curiosityScore: clampScore(item?.curiosityScore),
+        storyPotentialScore: clampScore(item?.storyPotentialScore),
+        clarityScore: clampScore(item?.clarityScore),
+        predictabilityScore: clampScore(item?.predictabilityScore)
+      }))
+      .filter((item) => item.angleTitle);
+  } catch {
+    return [];
+  }
+}
+
+function angleSelectionScore(angle) {
+  return (
+    angle.storyPotentialScore * 4 +
+    angle.curiosityScore * 3 +
+    angle.clarityScore * 2 -
+    angle.predictabilityScore * 3
+  );
+}
+
+function filterAngleCandidates(angles) {
+  const filtered = angles.filter((angle) => (
+    angle.storyPotentialScore >= 6 &&
+    angle.curiosityScore >= 6 &&
+    angle.clarityScore >= 5 &&
+    angle.predictabilityScore <= 6
+  ));
+
+  return (filtered.length ? filtered : angles)
+    .sort((left, right) => angleSelectionScore(right) - angleSelectionScore(left));
+}
+
+function buildFallbackAngleCandidates(subject, trendIdeas, language) {
+  const seeds = trendIdeas.length ? trendIdeas : [subject];
+
+  return seeds.slice(0, 12).map((seed, index) => {
+    if (language === "en") {
+      const templates = [
+        `The old betrayal hidden inside ${seed}`,
+        `The mistake that turned ${seed} into a bigger disaster`,
+        `Why ${seed} keeps dragging rivals back into the same trap`,
+        `The forgotten decision still poisoning ${seed}`,
+        `The humiliation story behind ${seed}`,
+        `The power grab nobody expected inside ${seed}`
+      ];
+
+      return {
+        angleTitle: templates[index % templates.length],
+        whyInteresting: `It turns ${seed} into a concrete story instead of a dry issue.`,
+        humanDrama: `betrayal, fear, pride, revenge around ${seed}`,
+        hookAngle: `Open with the one detail that makes ${seed} feel stranger than people expect.`,
+        curiosityScore: 7,
+        storyPotentialScore: 7,
+        clarityScore: 7,
+        predictabilityScore: 4
+      };
+    }
+
+    return {
+      angleTitle: `${seed} 뒤에 숨은 오래된 갈등`,
+      whyInteresting: `${seed}를 딱딱한 설명이 아니라 이야기로 바꿉니다.`,
+      humanDrama: `${seed} 안의 배신, 두려움, 자존심, 복수`,
+      hookAngle: `${seed}가 왜 생각보다 훨씬 오래된 이야기인지 바로 여는 방식`,
+      curiosityScore: 7,
+      storyPotentialScore: 7,
+      clarityScore: 7,
+      predictabilityScore: 4
+    };
+  });
+}
+
+function buildAngleResearchPrompt({ subject, selectedAngle, language, trendIdeas }) {
+  const outputLanguage = getOutputLanguageName(language);
+
+  return [
+    'You are a research writer for a YouTube longform channel called "Signal Trigger."',
+    "",
+    "Research starts only after the final angle has already been selected.",
+    "Build a clean research brief around that selected angle.",
+    "",
+    "Return valid JSON only in this shape:",
+    '{"summary":"","hiddenPastStory":"","keyPastEvents":[""],"researchNotes":[""]}',
+    "",
+    `Write all text in ${outputLanguage}.`,
+    "",
+    "Rules:",
+    "- focus on the selected angle, not the broader subject",
+    "- keep it story-driven and easy to understand",
+    "- list key past events in causal order",
+    "- avoid textbook tone and jargon",
+    "",
+    "Input:",
+    `Broad subject: ${normalizeText(subject) || "none"}`,
+    `Selected final angle: ${normalizeText(selectedAngle?.angleTitle) || "none"}`,
+    `Why this angle is interesting: ${normalizeText(selectedAngle?.whyInteresting) || "none"}`,
+    `Human drama: ${normalizeText(selectedAngle?.humanDrama) || "none"}`,
+    `Hook angle: ${normalizeText(selectedAngle?.hookAngle) || "none"}`,
+    `Trend signals: ${trendIdeas.join(" | ") || "none"}`
+  ].join("\n");
+}
+
+function parseAngleResearch(raw) {
+  try {
+    const parsed = JSON.parse(raw);
+    return {
+      summary: normalizeText(parsed?.summary),
+      hiddenPastStory: normalizeText(parsed?.hiddenPastStory),
+      keyPastEvents: Array.isArray(parsed?.keyPastEvents)
+        ? parsed.keyPastEvents.map((item) => normalizeText(item)).filter(Boolean).slice(0, 12)
+        : [],
+      researchNotes: Array.isArray(parsed?.researchNotes)
+        ? parsed.researchNotes.map((item) => normalizeText(item)).filter(Boolean).slice(0, 8)
+        : []
+    };
+  } catch {
+    return {
+      summary: "",
+      hiddenPastStory: "",
+      keyPastEvents: [],
+      researchNotes: []
+    };
+  }
+}
+
+function buildAngleDiscoverySummary(subject, selectedAngle, filteredAngles, language) {
+  const candidates = filteredAngles.slice(0, 5).map((item, index) => `${index + 1}. ${item.angleTitle}`).join("\n");
+
+  if (language === "en") {
+    return [
+      `Subject: ${subject}`,
+      `Selected angle: ${selectedAngle?.angleTitle || subject}`,
+      "",
+      "Top discovered angles:",
+      candidates || "None"
+    ].join("\n");
+  }
+
+  return [
+    `주제: ${subject}`,
+    `선택 각도: ${selectedAngle?.angleTitle || subject}`,
+    "",
+    "상위 발견 각도:",
+    candidates || "없음"
+  ].join("\n");
+}
+
+function buildFallbackAngleResearch(subject, selectedAngle, language) {
+  if (language === "en") {
+    return {
+      summary: `${selectedAngle.angleTitle} works because it turns ${subject} into a concrete, dramatic story instead of a generic explainer.`,
+      hiddenPastStory: `Behind ${selectedAngle.angleTitle} is an older chain of fear, pride, miscalculation, and memory that never really disappeared.`,
+      keyPastEvents: [
+        `The first major decision that set ${subject} on the wrong path`,
+        `The humiliation or betrayal that hardened positions`,
+        `The escalation that made compromise harder`,
+        `The moment outside powers changed the balance`,
+        `The trigger that brought the old tension back into the present`
+      ],
+      researchNotes: [
+        selectedAngle.whyInteresting,
+        selectedAngle.humanDrama,
+        selectedAngle.hookAngle
+      ].filter(Boolean)
+    };
+  }
+
+  return {
+    summary: `${selectedAngle.angleTitle}는 ${subject}를 뻔한 설명이 아니라 드라마가 있는 이야기로 바꿉니다.`,
+    hiddenPastStory: `${selectedAngle.angleTitle} 뒤에는 오래된 두려움, 자존심, 오판, 기억이 계속 남아 있습니다.`,
+    keyPastEvents: [
+      `${subject}의 방향을 바꾼 첫 결정`,
+      "입장을 굳혀 버린 배신 또는 굴욕",
+      "타협을 더 어렵게 만든 확대 국면",
+      "외부 세력이 판을 바꾼 순간",
+      "과거 긴장을 현재로 다시 끌어온 방아쇠"
+    ],
+    researchNotes: [
+      selectedAngle.whyInteresting,
+      selectedAngle.humanDrama,
+      selectedAngle.hookAngle
+    ].filter(Boolean)
+  };
+}
+
 export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
+  const subject = trimTopicTitle(topic || "", 72)
+    || await deriveTopicFromPrompt({ topicPrompt, language, fallbackTopic: topic });
+  const angleApiKey = process.env.OPENAI_API_KEY;
+  const angleModel = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+  const angleBaseUrl = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
+
+  try {
+    const trendIdeas = (await fetchTrendCandidates(language))
+      .sort((left, right) => historyPriorityScore(right) - historyPriorityScore(left))
+      .slice(0, 15);
+
+    let discoveredAngles = [];
+
+    if (angleApiKey) {
+      try {
+        const rawDiscovery = await callJsonChat({
+          apiKey: angleApiKey,
+          model: angleModel,
+          baseUrl: angleBaseUrl,
+          temperature: 0.9,
+          systemPrompt: "Discover story-rich hidden angles inside a broad subject. Return valid JSON only.",
+          userPrompt: buildAngleDiscoveryPrompt({
+            topicPrompt,
+            subject,
+            language,
+            trendIdeas
+          })
+        });
+        discoveredAngles = parseAngleDiscovery(rawDiscovery).slice(0, 12);
+      } catch {
+        // fall back below
+      }
+    }
+
+    if (!discoveredAngles.length) {
+      discoveredAngles = buildFallbackAngleCandidates(subject, trendIdeas, language).slice(0, 12);
+    }
+
+    const filteredAngles = filterAngleCandidates(discoveredAngles);
+    const selectedAngle = filteredAngles[0] || discoveredAngles[0] || {
+      angleTitle: subject,
+      whyInteresting: "",
+      humanDrama: "",
+      hookAngle: "",
+      curiosityScore: 5,
+      storyPotentialScore: 5,
+      clarityScore: 5,
+      predictabilityScore: 5
+    };
+
+    let researchBrief;
+
+    if (angleApiKey) {
+      try {
+        const rawResearch = await callJsonChat({
+          apiKey: angleApiKey,
+          model: angleModel,
+          baseUrl: angleBaseUrl,
+          temperature: 0.6,
+          systemPrompt: "Create a research brief for one selected story angle. Return valid JSON only.",
+          userPrompt: buildAngleResearchPrompt({
+            subject,
+            selectedAngle,
+            language,
+            trendIdeas
+          })
+        });
+        researchBrief = parseAngleResearch(rawResearch);
+      } catch {
+        researchBrief = buildFallbackAngleResearch(subject, selectedAngle, language);
+      }
+    } else {
+      researchBrief = buildFallbackAngleResearch(subject, selectedAngle, language);
+    }
+
+    const ideas = researchBrief.keyPastEvents.length
+      ? researchBrief.keyPastEvents
+      : filteredAngles.slice(0, 8).map((item) => item.angleTitle);
+
+    return {
+      source: `angle-research-${normalizeLanguage(language).geo}`,
+      subject,
+      selectedTopic: selectedAngle.angleTitle || subject,
+      selectedAngle,
+      angleDiscovery: discoveredAngles,
+      filteredAngles,
+      ideas,
+      summary: [
+        buildAngleDiscoverySummary(subject, selectedAngle, filteredAngles, language),
+        researchBrief.summary,
+        researchBrief.hiddenPastStory
+      ].filter(Boolean).join("\n\n"),
+      researchNotes: researchBrief.researchNotes || []
+    };
+  } catch {
+    const fallbackAngles = buildFallbackAngleCandidates(subject, [subject], language);
+    const filteredAngles = filterAngleCandidates(fallbackAngles);
+    const selectedAngle = filteredAngles[0] || fallbackAngles[0];
+    const researchBrief = buildFallbackAngleResearch(subject, selectedAngle, language);
+
+    return {
+      source: `fallback-angle-research-${normalizeLanguage(language).geo}`,
+      subject,
+      selectedTopic: selectedAngle.angleTitle || subject,
+      selectedAngle,
+      angleDiscovery: fallbackAngles,
+      filteredAngles,
+      ideas: researchBrief.keyPastEvents,
+      summary: [
+        buildAngleDiscoverySummary(subject, selectedAngle, filteredAngles, language),
+        researchBrief.summary,
+        researchBrief.hiddenPastStory
+      ].filter(Boolean).join("\n\n"),
+      researchNotes: researchBrief.researchNotes || []
+    };
+  }
+
   const resolvedTopic = trimTopicTitle(topic || "")
     || await deriveTopicFromPrompt({ topicPrompt, language, fallbackTopic: topic });
 

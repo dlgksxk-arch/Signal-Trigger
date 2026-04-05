@@ -1045,6 +1045,9 @@ function buildAgentContext(project) {
       webhookUrl: project.channel_webhook
     },
     research: project.research ?? null,
+    subject: project.research?.subject || project.topic,
+    selectedAngle: project.research?.selectedAngle || null,
+    angleDiscovery: project.research?.angleDiscovery || [],
     scriptText: project.script_text || "",
     scriptLength: project.script_text?.length || 0,
     scenesCount: project.scenes?.length || 0,
