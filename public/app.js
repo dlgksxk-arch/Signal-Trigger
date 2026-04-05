@@ -49,15 +49,18 @@ if (workflowPage) {
 
       setActiveStep(step);
 
-      const nextUrl = new URL(window.location.href);
-      nextUrl.searchParams.set("step", step);
-      window.history.replaceState({ step }, "", nextUrl);
+      const nextHref = link.dataset.stepHref || link.href;
+      window.history.replaceState({ step }, "", nextHref);
     });
   });
 
   window.addEventListener("popstate", () => {
-    setActiveStep(getStepFromUrl());
+    const currentPath = window.location.pathname.split("/").filter(Boolean);
+    const pathStep = currentPath[currentPath.length - 1];
+    setActiveStep(pathStep || getStepFromUrl());
   });
 
-  setActiveStep(getStepFromUrl());
+  const initialPath = window.location.pathname.split("/").filter(Boolean);
+  const initialStep = initialPath[initialPath.length - 1];
+  setActiveStep(initialStep || getStepFromUrl());
 }

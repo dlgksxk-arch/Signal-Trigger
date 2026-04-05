@@ -24,6 +24,7 @@ config();
 const port = Number(process.env.PORT || 3000);
 const appBaseUrl = process.env.APP_BASE_URL || `http://localhost:${port}`;
 const versionLabel = getVersionLabel();
+const homeSections = ["dashboard", "create", "channels", "projects"];
 const workflowOrder = ["topic", "research", "script", "scenes", "render", "publish"];
 
 export function createApp() {
@@ -38,11 +39,15 @@ export function createApp() {
   app.use("/storage", express.static(path.join(projectRoot, "storage")));
 
   app.get("/", (_req, res) => {
-    res.render("index", {
-      channels: listChannels(),
-      projects: listProjects(),
-      versionLabel
-    });
+    renderHomePage(res, "dashboard");
+  });
+
+  app.get("/workspace/:section", (req, res) => {
+    renderHomePage(res, req.params.section);
+  });
+
+  app.get("/projects/:id/:step", (req, res) => {
+    renderProjectPage(res, req.params.id, req.params.step);
   });
 
   app.get("/projects/:id", (req, res) => {
@@ -58,7 +63,7 @@ export function createApp() {
       created_at: new Date().toISOString()
     });
 
-    res.redirect("/");
+    res.redirect("/workspace/channels");
   });
 
   app.post(
@@ -100,7 +105,7 @@ export function createApp() {
         updated_at: now
       });
 
-      res.redirect(`/projects/${id}?step=topic`);
+      res.redirect(`/projects/${id}/topic`);
     }
   );
 
@@ -125,7 +130,7 @@ export function createApp() {
       })
     });
 
-    res.redirect(`/projects/${project.id}?step=topic`);
+    res.redirect(`/projects/${project.id}/topic`);
   });
 
   app.post("/projects/:id/bootstrap", async (req, res) => {
@@ -151,7 +156,7 @@ export function createApp() {
         script_text: script
       });
 
-      res.redirect(`/projects/${project.id}?step=script`);
+      res.redirect(`/projects/${project.id}/script`);
     } catch (error) {
       res.status(500).send(error instanceof Error ? error.message : "자동 초안 생성 실패");
     }
@@ -174,7 +179,7 @@ export function createApp() {
         })
       });
 
-      res.redirect(`/projects/${project.id}?step=research`);
+      res.redirect(`/projects/${project.id}/research`);
     } catch (error) {
       res.status(500).send(error instanceof Error ? error.message : "리서치 자동 수집 실패");
     }
@@ -199,7 +204,7 @@ export function createApp() {
       research_json: JSON.stringify(manualResearch)
     });
 
-    res.redirect(`/projects/${project.id}?step=research`);
+    res.redirect(`/projects/${project.id}/research`);
   });
 
   app.post("/projects/:id/script/auto", async (req, res) => {
@@ -225,7 +230,7 @@ export function createApp() {
         script_text: script
       });
 
-      res.redirect(`/projects/${project.id}?step=script`);
+      res.redirect(`/projects/${project.id}/script`);
     } catch (error) {
       res.status(500).send(error instanceof Error ? error.message : "대본 자동 생성 실패");
     }
@@ -243,13 +248,13 @@ export function createApp() {
       script_text: req.body.script?.trim() || ""
     });
 
-    res.redirect(`/projects/${project.id}?step=script`);
+    res.redirect(`/projects/${project.id}/script`);
   });
 
   app.post("/projects/:id/run", async (req, res) => {
     try {
       await runProject(req.params.id);
-      res.redirect(`/projects/${req.params.id}?step=render`);
+      res.redirect(`/projects/${req.params.id}/render`);
     } catch (error) {
       res.status(500).send(error instanceof Error ? error.message : "실행 실패");
     }
@@ -260,7 +265,7 @@ export function createApp() {
       await runProject(req.params.id, {
         regenerateSceneIndex: Number(req.params.sceneIndex)
       });
-      res.redirect(`/projects/${req.params.id}?step=scenes`);
+      res.redirect(`/projects/${req.params.id}/scenes`);
     } catch (error) {
       res.status(500).send(error instanceof Error ? error.message : "장면 재생성 실패");
     }
@@ -372,6 +377,26 @@ export function startServer() {
   });
 }
 
+function renderHomePage(res, requestedSection) {
+  const activeHomeSection = normalizeHomeSection(requestedSection);
+  const channels = listChannels();
+  const projects = listProjects();
+
+  res.render("index", {
+    channels,
+    projects,
+    versionLabel,
+    activeHomeSection,
+    homeNav: homeSections.map((section) => ({
+      key: section,
+      href: `/workspace/${section}`,
+      label: homeSectionLabel(section),
+      shortLabel: homeSectionShortLabel(section),
+      active: activeHomeSection === section
+    }))
+  });
+}
+
 function renderProjectPage(res, projectId, requestedStep, helpAnswer) {
   const project = getProject(projectId);
   if (!project) {
@@ -422,7 +447,7 @@ function buildWorkflowSteps(project, activeStep) {
     key: step,
     label: stepLabel(step),
     shortLabel: stepShortLabel(step),
-    href: `/projects/${project.id}?step=${step}`,
+    href: `/projects/${project.id}/${step}`,
     active: activeStep === step,
     done: statusMap[step]
   }));
@@ -456,6 +481,32 @@ function stepShortLabel(step) {
 
 function normalizeStep(step) {
   return workflowOrder.includes(step) ? step : "topic";
+}
+
+function normalizeHomeSection(section) {
+  return homeSections.includes(section) ? section : "dashboard";
+}
+
+function homeSectionLabel(section) {
+  const labels = {
+    dashboard: "대시보드",
+    create: "새 프로젝트",
+    channels: "업로드 채널",
+    projects: "프로젝트 목록"
+  };
+
+  return labels[section];
+}
+
+function homeSectionShortLabel(section) {
+  const labels = {
+    dashboard: "홈",
+    create: "생성",
+    channels: "채널",
+    projects: "목록"
+  };
+
+  return labels[section];
 }
 
 function splitLines(value) {
