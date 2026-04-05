@@ -4,6 +4,12 @@ if (workflowPage) {
   const workflowLinks = Array.from(document.querySelectorAll("[data-workflow-link]"));
   const workflowPanels = Array.from(document.querySelectorAll("[data-step-panel]"));
   const currentStepLabel = document.querySelector("[data-current-step-label]");
+  const sceneModal = document.querySelector("[data-scene-modal]");
+  const sceneModalTitle = document.querySelector("[data-scene-modal-title]");
+  const sceneModalImage = document.querySelector("[data-scene-modal-image]");
+  const sceneModalPrompt = document.querySelector("[data-scene-modal-prompt]");
+  const sceneModalNarration = document.querySelector("[data-scene-modal-narration]");
+  const sceneModalForm = document.querySelector("[data-scene-modal-form]");
 
   const setActiveStep = (step) => {
     let selectedLabel = "";
@@ -63,4 +69,54 @@ if (workflowPage) {
   const initialPath = window.location.pathname.split("/").filter(Boolean);
   const initialStep = initialPath[initialPath.length - 1];
   setActiveStep(initialStep || getStepFromUrl());
+
+  if (sceneModal) {
+    const sceneOpeners = Array.from(document.querySelectorAll("[data-scene-open]"));
+    const sceneClosers = Array.from(document.querySelectorAll("[data-scene-close]"));
+
+    const openSceneModal = (button) => {
+      sceneModal.hidden = false;
+      document.body.classList.add("modal-open");
+
+      if (sceneModalTitle) {
+        sceneModalTitle.textContent = button.dataset.sceneTitle || "장면 미리보기";
+      }
+
+      if (sceneModalImage) {
+        sceneModalImage.src = button.dataset.sceneImage || "";
+        sceneModalImage.alt = button.dataset.sceneTitle || "장면 이미지";
+      }
+
+      if (sceneModalPrompt) {
+        sceneModalPrompt.textContent = button.dataset.scenePrompt || "";
+      }
+
+      if (sceneModalNarration) {
+        sceneModalNarration.textContent = button.dataset.sceneNarration || "";
+      }
+
+      if (sceneModalForm) {
+        sceneModalForm.action = button.dataset.sceneAction || "";
+      }
+    };
+
+    const closeSceneModal = () => {
+      sceneModal.hidden = true;
+      document.body.classList.remove("modal-open");
+    };
+
+    sceneOpeners.forEach((button) => {
+      button.addEventListener("click", () => openSceneModal(button));
+    });
+
+    sceneClosers.forEach((button) => {
+      button.addEventListener("click", closeSceneModal);
+    });
+
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !sceneModal.hidden) {
+        closeSceneModal();
+      }
+    });
+  }
 }

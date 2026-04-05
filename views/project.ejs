@@ -286,7 +286,7 @@
                 </form>
               </div>
 
-              <div class="card-grid">
+              <div class="card-grid scene-grid">
                 <% if (!project.scenes.length) { %>
                   <div class="empty-card">
                     <strong>아직 장면이 없습니다.</strong>
@@ -294,16 +294,30 @@
                   </div>
                 <% } %>
                 <% project.scenes.forEach((scene, index) => { %>
-                  <article class="scene-card">
+                  <article class="scene-card <%= project.format %>">
                     <% if (scene.imagePath) { %>
-                      <img src="<%= scene.imagePath.replace(/^.*?storage/, '/storage') %>" alt="<%= scene.title %>" />
+                      <button
+                        type="button"
+                        class="scene-thumb-button"
+                        data-scene-open
+                        data-scene-title="<%= scene.title %>"
+                        data-scene-image="<%= scene.imagePath.replace(/^.*?storage/, '/storage').replace(/\\/g, '/') %>"
+                        data-scene-prompt="<%= scene.imagePrompt %>"
+                        data-scene-narration="<%= scene.narration %>"
+                        data-scene-action="/projects/<%= project.id %>/scenes/<%= index %>/regenerate"
+                      >
+                        <img
+                          class="scene-thumb-image"
+                          src="<%= scene.imagePath.replace(/^.*?storage/, '/storage').replace(/\\/g, '/') %>"
+                          alt="<%= scene.title %>"
+                        />
+                      </button>
                     <% } %>
-                    <h3><%= scene.title %></h3>
-                    <p><%= scene.narration %></p>
-                    <small><%= scene.imagePrompt %></small>
-                    <form action="/projects/<%= project.id %>/scenes/<%= index %>/regenerate" method="post">
-                      <button type="submit">이 장면만 다시 생성</button>
-                    </form>
+                    <div class="scene-card-body">
+                      <h3><%= scene.title %></h3>
+                      <p class="scene-summary"><%= scene.narration.length > 160 ? `${scene.narration.slice(0, 160)}...` : scene.narration %></p>
+                      <small><%= scene.imagePrompt %></small>
+                    </div>
                   </article>
                 <% }) %>
               </div>
@@ -418,6 +432,41 @@
           </aside>
         </section>
       </main>
+    </div>
+
+    <div class="scene-modal" data-scene-modal hidden>
+      <div class="scene-modal-backdrop" data-scene-close></div>
+      <div class="scene-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="scene-modal-title">
+        <div class="scene-modal-header">
+          <div>
+            <p class="section-tag">Scene Detail</p>
+            <h2 id="scene-modal-title" data-scene-modal-title>장면 미리보기</h2>
+          </div>
+          <button type="button" class="dark-button" data-scene-close>닫기</button>
+        </div>
+
+        <div class="scene-modal-grid">
+          <div class="scene-modal-image-wrap">
+            <img class="scene-modal-image" data-scene-modal-image src="" alt="" />
+          </div>
+
+          <div class="scene-modal-content">
+            <section class="soft-card">
+              <h3>이미지 프롬프트</h3>
+              <p data-scene-modal-prompt></p>
+            </section>
+
+            <section class="soft-card">
+              <h3>장면 내레이션</h3>
+              <p data-scene-modal-narration></p>
+            </section>
+
+            <form method="post" data-scene-modal-form>
+              <button type="submit">이 장면 다시 생성</button>
+            </form>
+          </div>
+        </div>
+      </div>
     </div>
   </body>
 </html>
