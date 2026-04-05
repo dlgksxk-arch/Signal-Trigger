@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><%= (project.topic || '').split(/\r?\n/)[0] %> - <%= versionLabel %></title>
+    <title><%= (project.settings?.projectTitle || project.topic || '').split(/\r?\n/)[0] %> - <%= versionLabel %></title>
     <link rel="stylesheet" href="/public/app.css" />
     <script src="/public/app.js" defer></script>
   </head>
@@ -64,7 +64,7 @@
           <div>
             <a class="back-link" href="/workspace/projects">프로젝트 보관함으로</a>
             <p class="section-tag">Project Editor</p>
-            <h1><%= (project.topic || '').split(/\r?\n/)[0] %></h1>
+            <h1><%= (project.settings?.projectTitle || project.topic || '').split(/\r?\n/)[0] %></h1>
             <p class="lead-text">왼쪽에서 작업 단계를 고르고, 가운데에서 해당 단계만 집중 편집합니다. 현재 목표 영상 길이는 약 <%= project.settings?.durationMinutes || 10 %>분입니다.</p>
             <div class="form-actions topbar-actions">
               <form action="/projects/<%= project.id %>/delete" method="post" data-delete-project-form>
@@ -158,6 +158,15 @@
               </div>
 
               <form class="form-grid studio-form" action="/projects/<%= project.id %>/settings" method="post" enctype="multipart/form-data">
+                <label class="wide">프로젝트 제목
+                  <input
+                    type="text"
+                    name="projectTitle"
+                    value="<%= project.settings?.projectTitle || '' %>"
+                    placeholder="예: 오늘의 지정학 브리핑"
+                  />
+                </label>
+
                 <label class="wide">주제 프롬프트
                   <textarea
                     name="topicPrompt"

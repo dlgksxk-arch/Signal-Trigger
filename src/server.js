@@ -97,6 +97,7 @@ export function createApp() {
       const id = randomUUID();
       const now = new Date().toISOString();
       const durationMinutes = parseDurationMinutes(req.body.durationMinutes, 10);
+      const projectTitle = normalizeProjectTitle(req.body.projectTitle);
       const topicPrompt = normalizeTopicPrompt(req.body.topicPrompt || req.body.topic);
       const language = req.body.language?.trim() || "ko";
       const tone = req.body.tone?.trim() || "정보형";
@@ -119,6 +120,7 @@ export function createApp() {
         bgm_path: files?.bgmFile?.[0]?.path || null,
         watermark_path: files?.watermarkFile?.[0]?.path || null,
         settings_json: JSON.stringify({
+          projectTitle,
           topicPrompt,
           customPrompt: req.body.customPrompt?.trim() || "",
           durationMinutes,
@@ -154,6 +156,7 @@ export function createApp() {
 
     const files = req.files;
     const durationMinutes = parseDurationMinutes(req.body.durationMinutes, project.settings?.durationMinutes || 10);
+    const projectTitle = normalizeProjectTitle(req.body.projectTitle) || project.settings?.projectTitle || "";
     const topicPrompt = normalizeTopicPrompt(
       req.body.topicPrompt || req.body.topic || project.settings?.topicPrompt || project.topic
     );
@@ -194,6 +197,7 @@ export function createApp() {
       updated_at: new Date().toISOString(),
       settings_json: JSON.stringify({
         ...(project.settings ?? {}),
+        projectTitle,
         topicPrompt,
         customPrompt: req.body.customPrompt?.trim() || "",
         durationMinutes,
@@ -931,6 +935,10 @@ function normalizeTopicPrompt(value) {
   return String(value ?? "")
     .replace(/\r\n/g, "\n")
     .trim();
+}
+
+function normalizeProjectTitle(value) {
+  return String(value ?? "").trim();
 }
 
 function cleanupProjectAsset(filePath) {

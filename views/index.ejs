@@ -130,7 +130,7 @@
                     </div>
                   <% } %>
                   <% projects.slice(0, 5).forEach((project) => { %>
-                    <% const projectTitle = (project.topic || '').split(/\r?\n/)[0].slice(0, 60); %>
+                    <% const projectTitle = (project.settings?.projectTitle || project.topic || '').split(/\r?\n/)[0].slice(0, 60); %>
                     <article class="panel-card dashboard-project-card">
                       <div class="dashboard-project-head">
                         <div>
@@ -258,6 +258,10 @@
               </div>
 
               <form class="form-grid studio-form" action="/projects" method="post" enctype="multipart/form-data">
+                <label class="wide">프로젝트 제목
+                  <input type="text" name="projectTitle" placeholder="예: 오늘의 지정학 브리핑" />
+                </label>
+
                 <label class="wide">주제 프롬프트
                   <textarea
                     name="topicPrompt"
@@ -421,7 +425,7 @@
                   </div>
                 <% } %>
                 <% projects.forEach((project) => { %>
-                  <% const projectTitle = (project.topic || '').split(/\r?\n/)[0].slice(0, 60); %>
+                  <% const projectTitle = (project.settings?.projectTitle || project.topic || '').split(/\r?\n/)[0].slice(0, 60); %>
                   <a class="list-row large-row" href="/projects/<%= project.id %>/topic">
                     <div>
                       <strong><%= projectTitle %></strong>
