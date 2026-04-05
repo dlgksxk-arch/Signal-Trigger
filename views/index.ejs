@@ -7,136 +7,235 @@
     <link rel="stylesheet" href="/public/app.css" />
   </head>
   <body>
-    <main class="shell">
-      <section class="topbar">
-        <div>
-          <p class="eyebrow">Longform 자동 공장</p>
-          <h1>워크플로우 중심 제작 화면</h1>
-          <p class="sub">버전 <strong><%= versionLabel %></strong> 기준 시작 화면입니다.</p>
-        </div>
-      </section>
-
-      <section class="home-grid">
-        <article class="panel">
-          <div class="panel-head">
-            <div>
-              <p class="eyebrow">새 워크플로우</p>
-              <h2>프로젝트 만들기</h2>
-            </div>
-          </div>
-
-          <form class="form-grid" action="/projects" method="post" enctype="multipart/form-data">
-            <label>주제
-              <input type="text" name="topic" placeholder="예: 수면의 질을 높이는 습관" required />
-            </label>
-
-            <label>언어
-              <select name="language">
-                <option value="ko">한국어</option>
-                <option value="en">영어</option>
-                <option value="ja">일본어</option>
-              </select>
-            </label>
-
-            <label>톤
-              <input type="text" name="tone" value="정보형" />
-            </label>
-
-            <label>화면 비율
-              <select name="format">
-                <option value="portrait">세로형 9:16</option>
-                <option value="landscape">가로형 16:9</option>
-              </select>
-            </label>
-
-            <label>채널
-              <select name="channelId">
-                <option value="">선택 안 함</option>
-                <% channels.forEach((channel) => { %>
-                  <option value="<%= channel.id %>"><%= channel.name %></option>
-                <% }) %>
-              </select>
-            </label>
-
-            <label>예약 시각
-              <input type="datetime-local" name="scheduledAt" />
-            </label>
-
-            <label class="wide">추가 지시
-              <input type="text" name="customPrompt" placeholder="예: 차분하고 신뢰감 있게" />
-            </label>
-
-            <label>스타일 레퍼런스
-              <input type="file" name="styleReference" accept="image/*" />
-            </label>
-
-            <label>BGM 파일
-              <input type="file" name="bgmFile" accept="audio/*" />
-            </label>
-
-            <label>워터마크
-              <input type="file" name="watermarkFile" accept="image/*" />
-            </label>
-
-            <div class="wide">
-              <button type="submit">워크플로우 시작</button>
-            </div>
-          </form>
-        </article>
-
-        <aside class="panel">
-          <div class="panel-head">
-            <div>
-              <p class="eyebrow">채널</p>
-              <h2>업로드 채널</h2>
-            </div>
-          </div>
-
-          <form class="form-grid" action="/channels" method="post">
-            <label>채널 이름
-              <input type="text" name="name" placeholder="메인 유튜브 채널" />
-            </label>
-
-            <label>플랫폼
-              <input type="text" name="platform" value="youtube" />
-            </label>
-
-            <label class="wide">업로드 웹훅 URL
-              <input type="text" name="uploadWebhookUrl" placeholder="n8n webhook URL" />
-            </label>
-
-            <div class="wide">
-              <button type="submit">채널 저장</button>
-            </div>
-          </form>
-        </aside>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head">
+    <div class="dashboard-shell">
+      <aside class="dashboard-sidebar">
+        <div class="sidebar-brand">
+          <div class="brand-mark">LF</div>
           <div>
-            <p class="eyebrow">프로젝트 목록</p>
-            <h2>최근 워크플로우</h2>
-            <p class="sub">프로젝트를 누르면 좌측 워크플로우와 우측 세부 조정 화면으로 이동합니다.</p>
+            <p class="brand-title">Longform</p>
+            <p class="brand-sub">Factory <%= versionLabel %></p>
           </div>
         </div>
 
-        <div class="project-list">
-          <% if (!projects.length) { %>
-            <p class="empty">아직 프로젝트가 없습니다.</p>
-          <% } %>
+        <nav class="sidebar-menu">
+          <a class="menu-item active" href="/">
+            <span class="menu-dot"></span>
+            <span>Dashboard</span>
+          </a>
+          <a class="menu-item" href="#create">
+            <span class="menu-dot"></span>
+            <span>New Workflow</span>
+          </a>
+          <a class="menu-item" href="#channels">
+            <span class="menu-dot"></span>
+            <span>Channels</span>
+          </a>
+          <a class="menu-item" href="#projects">
+            <span class="menu-dot"></span>
+            <span>Projects</span>
+          </a>
+        </nav>
 
-          <% projects.forEach((project) => { %>
-            <a class="project-row" href="/projects/<%= project.id %>?step=topic">
-              <div>
-                <strong><%= project.topic %></strong>
-                <p><%= project.language %> · <%= project.tone %> · <%= project.format %></p>
+        <section class="sidebar-note">
+          <p class="eyebrow">핵심 흐름</p>
+          <ul class="sidebar-list">
+            <li>주제 선택</li>
+            <li>소재 발굴</li>
+            <li>대본 작성</li>
+            <li>장면 생성</li>
+            <li>렌더링</li>
+            <li>업로드</li>
+          </ul>
+        </section>
+      </aside>
+
+      <main class="dashboard-main">
+        <section class="hero-board">
+          <div>
+            <p class="eyebrow">Longform 자동 공장</p>
+            <h1>워크플로우 중심 제작 화면</h1>
+            <p class="sub">Trior 계열 대시보드 방향처럼 한 화면에서 흐름과 상태를 바로 보게 구성했습니다.</p>
+          </div>
+
+          <div class="hero-stats">
+            <article class="stat-card accent">
+              <span class="stat-label">버전</span>
+              <strong><%= versionLabel %></strong>
+            </article>
+            <article class="stat-card">
+              <span class="stat-label">채널 수</span>
+              <strong><%= channels.length %></strong>
+            </article>
+            <article class="stat-card">
+              <span class="stat-label">프로젝트 수</span>
+              <strong><%= projects.length %></strong>
+            </article>
+          </div>
+        </section>
+
+        <section class="dashboard-grid">
+          <section class="dashboard-column main-column">
+            <article class="dashboard-card" id="create">
+              <div class="card-header">
+                <div>
+                  <p class="eyebrow">새 워크플로우</p>
+                  <h2>프로젝트 만들기</h2>
+                </div>
+                <span class="pill">Auto + Manual</span>
               </div>
-              <span class="badge <%= project.status %>"><%= project.status %></span>
-            </a>
-          <% }) %>
-        </div>
-      </section>
-    </main>
+
+              <form class="form-grid dashboard-form" action="/projects" method="post" enctype="multipart/form-data">
+                <label>주제
+                  <input type="text" name="topic" placeholder="예: 수면의 질을 높이는 습관" required />
+                </label>
+
+                <label>언어
+                  <select name="language">
+                    <option value="ko">한국어</option>
+                    <option value="en">영어</option>
+                    <option value="ja">일본어</option>
+                  </select>
+                </label>
+
+                <label>톤
+                  <input type="text" name="tone" value="정보형" />
+                </label>
+
+                <label>화면 비율
+                  <select name="format">
+                    <option value="portrait">세로형 9:16</option>
+                    <option value="landscape">가로형 16:9</option>
+                  </select>
+                </label>
+
+                <label>채널
+                  <select name="channelId">
+                    <option value="">선택 안 함</option>
+                    <% channels.forEach((channel) => { %>
+                      <option value="<%= channel.id %>"><%= channel.name %></option>
+                    <% }) %>
+                  </select>
+                </label>
+
+                <label>예약 시작
+                  <input type="datetime-local" name="scheduledAt" />
+                </label>
+
+                <label class="wide">추가 지시
+                  <input type="text" name="customPrompt" placeholder="예: 차분하고 신뢰감 있게" />
+                </label>
+
+                <label>스타일 레퍼런스
+                  <input type="file" name="styleReference" accept="image/*" />
+                </label>
+
+                <label>BGM 파일
+                  <input type="file" name="bgmFile" accept="audio/*" />
+                </label>
+
+                <label class="wide">워터마크
+                  <input type="file" name="watermarkFile" accept="image/*" />
+                </label>
+
+                <div class="wide form-actions">
+                  <button type="submit">워크플로우 시작</button>
+                </div>
+              </form>
+            </article>
+
+            <article class="dashboard-card" id="projects">
+              <div class="card-header">
+                <div>
+                  <p class="eyebrow">프로젝트 목록</p>
+                  <h2>최근 워크플로우</h2>
+                </div>
+                <span class="muted-caption">프로젝트 클릭 시 세부 워크플로우 화면으로 이동</span>
+              </div>
+
+              <div class="project-board">
+                <% if (!projects.length) { %>
+                  <div class="empty-board">
+                    <strong>아직 프로젝트가 없습니다.</strong>
+                    <p>위 입력 카드에서 새 워크플로우를 시작하면 좌측 단계형 편집 화면으로 이동합니다.</p>
+                  </div>
+                <% } %>
+
+                <% projects.forEach((project) => { %>
+                  <a class="project-tile" href="/projects/<%= project.id %>?step=topic">
+                    <div>
+                      <strong><%= project.topic %></strong>
+                      <p><%= project.language %> · <%= project.tone %> · <%= project.format %></p>
+                    </div>
+                    <span class="badge <%= project.status %>"><%= project.status %></span>
+                  </a>
+                <% }) %>
+              </div>
+            </article>
+          </section>
+
+          <aside class="dashboard-column side-column">
+            <article class="dashboard-card compact-card" id="channels">
+              <div class="card-header">
+                <div>
+                  <p class="eyebrow">채널</p>
+                  <h2>업로드 채널</h2>
+                </div>
+              </div>
+
+              <form class="form-grid single-form" action="/channels" method="post">
+                <label>채널 이름
+                  <input type="text" name="name" placeholder="메인 유튜브 채널" />
+                </label>
+
+                <label>플랫폼
+                  <input type="text" name="platform" value="youtube" />
+                </label>
+
+                <label>업로드 웹훅 URL
+                  <input type="text" name="uploadWebhookUrl" placeholder="n8n webhook URL" />
+                </label>
+
+                <div class="form-actions">
+                  <button type="submit">채널 저장</button>
+                </div>
+              </form>
+            </article>
+
+            <article class="dashboard-card compact-card">
+              <div class="card-header">
+                <div>
+                  <p class="eyebrow">워크플로우 상태</p>
+                  <h2>진행 방식</h2>
+                </div>
+              </div>
+
+              <div class="timeline-card">
+                <div class="timeline-item done">
+                  <span class="timeline-dot"></span>
+                  <div>
+                    <strong>주제 선택</strong>
+                    <p>자동 초안과 수동 입력 혼합</p>
+                  </div>
+                </div>
+                <div class="timeline-item">
+                  <span class="timeline-dot"></span>
+                  <div>
+                    <strong>대본 작성</strong>
+                    <p>리서치 기반 자동 생성 후 직접 보정</p>
+                  </div>
+                </div>
+                <div class="timeline-item">
+                  <span class="timeline-dot"></span>
+                  <div>
+                    <strong>장면/렌더</strong>
+                    <p>장면별 재생성과 전체 렌더 분리</p>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </aside>
+        </section>
+      </main>
+    </div>
   </body>
 </html>
