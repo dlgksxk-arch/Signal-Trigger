@@ -1,0 +1,93 @@
+{
+  "name": "Longform Upload Webhook",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "longform-upload",
+        "responseMode": "lastNode"
+      },
+      "id": "Webhook_1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 280]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "projectId",
+              "name": "projectId",
+              "value": "={{ $json.body.id }}",
+              "type": "string"
+            },
+            {
+              "id": "videoUrl",
+              "name": "videoUrl",
+              "value": "={{ $json.body.files.videoUrl }}",
+              "type": "string"
+            },
+            {
+              "id": "thumbnailUrl",
+              "name": "thumbnailUrl",
+              "value": "={{ $json.body.files.thumbnailUrl }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "Set_1",
+      "name": "Payload 정리",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [520, 280]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://host.docker.internal:3000/api/projects/{{ $json.projectId }}/mark-uploaded",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "ok",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "id": "HttpRequest_1",
+      "name": "업로드 완료 표시",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [780, 280]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, projectId: $json.projectId, message: '여기에 YouTube 업로드 노드를 연결하면 됩니다.' } }}"
+      },
+      "id": "Respond_1",
+      "name": "응답",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1040, 280]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Payload 정리", "type": "main", "index": 0 }]]
+    },
+    "Payload 정리": {
+      "main": [[{ "node": "업로드 완료 표시", "type": "main", "index": 0 }]]
+    },
+    "업로드 완료 표시": {
+      "main": [[{ "node": "응답", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1"
+}

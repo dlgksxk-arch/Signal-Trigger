@@ -1,0 +1,8 @@
+node_modules/
+.env
+storage/longform.db
+storage/projects/
+storage/uploads/
+storage/n8n/
+storage/server-out.log
+storage/server-err.log
