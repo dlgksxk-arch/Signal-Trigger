@@ -570,9 +570,7 @@ export async function runProject(projectId, options = {}) {
       subtitlesPath
     });
 
-    if (!fs.existsSync(subtitlesPath)) {
-      generateSrt({ scenes, outputPath: subtitlesPath });
-    }
+    generateSrt({ scenes, outputPath: subtitlesPath });
 
     await renderVideo({
       sceneImages: scenes.map((scene) => scene.imagePath),

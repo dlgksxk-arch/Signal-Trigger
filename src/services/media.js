@@ -180,20 +180,44 @@ function pickVoiceOptions(language) {
 
 export function generateSrt({ scenes, outputPath }) {
   ensureDir(path.dirname(outputPath));
-  let cursor = 0;
   const lines = [];
+  const sceneTimeline = buildSceneTimeline(scenes);
 
   scenes.forEach((scene, index) => {
-    const duration = scene.durationSec ?? estimateDuration(scene.narration);
+    const timing = sceneTimeline[index];
     lines.push(String(index + 1));
-    lines.push(`${secondsToSrt(cursor)} --> ${secondsToSrt(cursor + duration)}`);
+    lines.push(`${secondsToSrt(timing.startSec)} --> ${secondsToSrt(timing.endSec)}`);
     lines.push(scene.narration);
     lines.push("");
-    cursor += duration;
   });
 
   fs.writeFileSync(outputPath, lines.join("\n"), "utf8");
   return outputPath;
+}
+
+function getSceneTransitionDuration(durationSec) {
+  return Math.min(0.45, Math.max(0.24, durationSec * 0.08));
+}
+
+function buildSceneTimeline(scenes) {
+  let currentStartSec = 0;
+
+  return scenes.map((scene, index) => {
+    const durationSec = scene.durationSec ?? estimateDuration(scene.narration);
+    const transitionDuration = index < scenes.length - 1
+      ? getSceneTransitionDuration(durationSec)
+      : 0;
+    const endSec = Math.max(currentStartSec, currentStartSec + durationSec - transitionDuration);
+    const timing = {
+      startSec: currentStartSec,
+      endSec,
+      durationSec,
+      transitionDuration
+    };
+
+    currentStartSec = endSec;
+    return timing;
+  });
 }
 
 function estimateDuration(text) {
@@ -409,7 +433,8 @@ export async function renderVideo({
   format
 }) {
   ensureDir(path.dirname(outputPath));
-  const durations = scenes.map((scene) => scene.durationSec);
+  const sceneTimeline = buildSceneTimeline(scenes);
+  const durations = sceneTimeline.map((item) => item.durationSec);
   const clipsDir = path.join(path.dirname(outputPath), "clips");
   ensureDir(clipsDir);
 
@@ -461,16 +486,16 @@ export async function renderVideo({
   } else {
     filters.push(`[0:v]scale=${width}:${height},setsar=1[v0]`);
     const transitions = ["fade", "smoothleft", "smoothright", "circleopen"];
-    let offset = durations[0];
+    let offset = sceneTimeline[0]?.durationSec || durations[0];
 
     for (let index = 1; index < clipPaths.length; index += 1) {
       const previousLabel = `v${index - 1}`;
       const nextLabel = `v${index}`;
-      const transitionDuration = Math.min(0.45, Math.max(0.24, durations[index - 1] * 0.08));
-      offset = Math.max(0, offset - transitionDuration);
+      const transitionDuration = sceneTimeline[index - 1]?.transitionDuration || getSceneTransitionDuration(durations[index - 1]);
+      offset = sceneTimeline[index]?.startSec ?? Math.max(0, offset - transitionDuration);
       filters.push(`[${index}:v]scale=${width}:${height},setsar=1[s${index}]`);
       filters.push(`[${previousLabel}][s${index}]xfade=transition=${transitions[(index - 1) % transitions.length]}:duration=${transitionDuration}:offset=${offset}[${nextLabel}]`);
-      offset += durations[index];
+      offset = (sceneTimeline[index]?.startSec ?? offset) + durations[index];
       currentVideo = nextLabel;
     }
   }
