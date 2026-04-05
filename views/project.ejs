@@ -8,29 +8,25 @@
   </head>
   <body>
     <div class="dashboard-shell">
-      <aside class="dashboard-sidebar">
-        <div class="sidebar-brand">
+      <aside class="dashboard-sidebar compact-sidebar workflow-rail">
+        <div class="sidebar-brand compact-brand">
           <div class="brand-mark">LF</div>
-          <div>
-            <p class="brand-title">Longform</p>
-            <p class="brand-sub">Factory <%= versionLabel %></p>
-          </div>
         </div>
 
-        <nav class="sidebar-menu">
-          <a class="menu-item" href="/">
+        <nav class="sidebar-menu compact-menu workflow-rail-menu">
+          <a class="menu-item compact-item" href="/" title="Dashboard">
             <span class="menu-dot"></span>
-            <span>Dashboard</span>
+            <span class="compact-text">Home</span>
           </a>
           <% steps.forEach((step) => { %>
-            <a class="menu-item workflow-link <%= step.active ? 'active' : '' %>" href="<%= step.href %>">
+            <a class="menu-item workflow-link compact-item <%= step.active ? 'active' : '' %>" href="<%= step.href %>" title="<%= step.label %>">
               <span class="menu-dot <%= step.done ? 'done' : '' %>"></span>
-              <span><%= step.label %></span>
+              <span class="compact-text"><%= step.label.split('. ')[0] %></span>
             </a>
           <% }) %>
         </nav>
 
-        <section class="sidebar-note">
+        <section class="sidebar-note compact-note">
           <p class="eyebrow">현재 상태</p>
           <ul class="sidebar-list">
             <li>상태: <strong><%= project.status %></strong></li>
