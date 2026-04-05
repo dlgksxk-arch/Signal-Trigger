@@ -41,7 +41,7 @@ async function generateWithOpenAI({ outputPath, scene, format }) {
 
   const imageBaseUrl = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
   const imageModel = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
-  const imageQuality = process.env.OPENAI_IMAGE_QUALITY || "medium";
+  const imageQuality = process.env.OPENAI_IMAGE_QUALITY || "low";
   const { width, height, openAiSize } = getImageGenerationConfig(format);
 
   const response = await fetch(`${imageBaseUrl}/images/generations`, {
