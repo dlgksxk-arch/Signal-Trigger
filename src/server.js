@@ -101,7 +101,7 @@ export function createApp() {
       const topicPrompt = normalizeTopicPrompt(req.body.topicPrompt || req.body.topic);
       const language = req.body.language?.trim() || "ko";
       const tone = req.body.tone?.trim() || "정보형";
-      const resolvedTopic = await resolveTopicFromInput({
+      const rawSubject = await resolveTopicFromInput({
         topicPrompt,
         language,
         tone
@@ -109,7 +109,7 @@ export function createApp() {
 
       createProject({
         id,
-        topic: resolvedTopic,
+        topic: rawSubject,
         language,
         tone,
         format: req.body.format?.trim() || "portrait",
@@ -121,6 +121,7 @@ export function createApp() {
         watermark_path: files?.watermarkFile?.[0]?.path || null,
         settings_json: JSON.stringify({
           projectTitle,
+          rawSubject,
           topicPrompt,
           customPrompt: req.body.customPrompt?.trim() || "",
           durationMinutes,
@@ -162,7 +163,7 @@ export function createApp() {
     );
     const language = req.body.language?.trim() || project.language;
     const tone = req.body.tone?.trim() || project.tone;
-    const resolvedTopic = await resolveTopicFromInput({
+    const rawSubject = await resolveTopicFromInput({
       topicPrompt,
       language,
       tone,
@@ -185,7 +186,7 @@ export function createApp() {
     });
 
     updateProject(project.id, {
-      topic: resolvedTopic,
+      topic: rawSubject,
       language,
       tone,
       format: req.body.format?.trim() || project.format,
@@ -198,6 +199,7 @@ export function createApp() {
       settings_json: JSON.stringify({
         ...(project.settings ?? {}),
         projectTitle,
+        rawSubject,
         topicPrompt,
         customPrompt: req.body.customPrompt?.trim() || "",
         durationMinutes,
@@ -238,12 +240,12 @@ export function createApp() {
       const hydrated = await hydrateProjectTopic(project);
       const durationMinutes = hydrated.settings?.durationMinutes || 10;
       const research = await fetchTrendIdeas({
-        topicPrompt: hydrated.settings?.topicPrompt || hydrated.topic,
-        topic: hydrated.topic,
+        topicPrompt: hydrated.settings?.topicPrompt || getRawSubject(hydrated),
+        topic: getRawSubject(hydrated),
         language: hydrated.language
       });
       const script = await generateScript({
-        topic: hydrated.topic,
+        topic: getResearchTopic(hydrated, research),
         tone: hydrated.tone,
         language: hydrated.language,
         research,
@@ -252,7 +254,6 @@ export function createApp() {
       });
 
       updateProject(project.id, {
-        topic: research.selectedTopic || hydrated.topic,
         updated_at: new Date().toISOString(),
         research_json: JSON.stringify(research),
         script_text: script
@@ -274,13 +275,12 @@ export function createApp() {
     try {
       const hydrated = await hydrateProjectTopic(project);
       const research = await fetchTrendIdeas({
-        topicPrompt: hydrated.settings?.topicPrompt || hydrated.topic,
-        topic: hydrated.topic,
+        topicPrompt: hydrated.settings?.topicPrompt || getRawSubject(hydrated),
+        topic: getRawSubject(hydrated),
         language: hydrated.language
       });
 
       updateProject(project.id, {
-        topic: research.selectedTopic || hydrated.topic,
         updated_at: new Date().toISOString(),
         research_json: JSON.stringify({
           ...research,
@@ -303,7 +303,12 @@ export function createApp() {
 
     const manualResearch = {
       source: project.research?.source || "manual",
-      selectedTopic: project.topic,
+      subject: getRawSubject(project),
+      selectedTopic: getResearchTopic(project),
+      selectedAngle: project.research?.selectedAngle || null,
+      angleDiscovery: project.research?.angleDiscovery || [],
+      rejectedAngles: project.research?.rejectedAngles || [],
+      filteredAngles: project.research?.filteredAngles || [],
       summary: req.body.summary?.trim() || "",
       ideas: splitLines(req.body.ideas),
       manualNotes: req.body.manualNotes?.trim() || ""
@@ -328,12 +333,12 @@ export function createApp() {
       const hydrated = await hydrateProjectTopic(project);
       const durationMinutes = hydrated.settings?.durationMinutes || 10;
       const research = hydrated.research ?? await fetchTrendIdeas({
-        topicPrompt: hydrated.settings?.topicPrompt || hydrated.topic,
-        topic: hydrated.topic,
+        topicPrompt: hydrated.settings?.topicPrompt || getRawSubject(hydrated),
+        topic: getRawSubject(hydrated),
         language: hydrated.language
       });
       const script = await generateScript({
-        topic: hydrated.topic,
+        topic: getResearchTopic(hydrated, research),
         tone: hydrated.tone,
         language: hydrated.language,
         research,
@@ -342,7 +347,6 @@ export function createApp() {
       });
 
       updateProject(project.id, {
-        topic: research.selectedTopic || hydrated.topic,
         updated_at: new Date().toISOString(),
         research_json: JSON.stringify(research),
         script_text: script
@@ -471,7 +475,7 @@ export function createApp() {
   app.get("/api/upload-ready", (_req, res) => {
     const items = listDueUploads(new Date().toISOString()).map((project) => ({
       id: project.id,
-      topic: project.topic,
+      topic: getResearchTopic(project),
       channelName: project.channel_name,
       webhookUrl: project.channel_webhook,
       scheduledAt: project.scheduled_at,
@@ -490,7 +494,7 @@ export function createApp() {
 
     res.json({
       id: project.id,
-      topic: project.topic,
+      topic: getResearchTopic(project),
       language: project.language,
       scheduledAt: project.scheduled_at,
       channel: {
@@ -515,7 +519,7 @@ export function createApp() {
 
     res.json({
       version: versionLabel,
-      topic: project.topic,
+      topic: getResearchTopic(project),
       language: project.language,
       script: project.script_text,
       narrationUrl: toPublicStorageUrl(project.output?.narrationPath),
@@ -988,28 +992,43 @@ async function resolveTopicFromInput({ topicPrompt, language, tone, fallbackTopi
   return resolvedTopic?.trim() || fallbackTopic?.trim() || "주제 미정";
 }
 
+function getRawSubject(project) {
+  return normalizeTopicPrompt(project?.settings?.rawSubject || project?.topic || "");
+}
+
+function getResearchTopic(project, research = project?.research) {
+  return (
+    research?.selectedAngle?.angleTitle?.trim()
+    || research?.selectedTopic?.trim()
+    || getRawSubject(project)
+    || "주제 미정"
+  );
+}
+
 async function hydrateProjectTopic(project) {
   const topicPrompt = project.settings?.topicPrompt || project.topic || "";
-  const needsResolution = !project.topic || isInstructionLikeTopic(project.topic) || isWeakResolvedTopic(project.topic);
+  const currentSubject = getRawSubject(project);
+  const needsResolution = !currentSubject || isInstructionLikeTopic(currentSubject) || isWeakResolvedTopic(currentSubject);
 
-  if (!needsResolution && project.settings?.topicPrompt) {
+  if (!needsResolution && project.settings?.rawSubject) {
     return project;
   }
 
-  const resolvedTopic = await resolveTopicFromInput({
+  const rawSubject = await resolveTopicFromInput({
     topicPrompt,
     language: project.language,
     tone: project.tone,
-    fallbackTopic: project.topic
+    fallbackTopic: currentSubject
   });
 
   const nextSettings = {
     ...(project.settings ?? {}),
-    topicPrompt
+    topicPrompt,
+    rawSubject
   };
 
   updateProject(project.id, {
-    topic: resolvedTopic,
+    topic: rawSubject,
     updated_at: new Date().toISOString(),
     settings_json: JSON.stringify(nextSettings)
   });
@@ -1029,7 +1048,8 @@ async function hydrateProjectById(projectId) {
 function buildAgentContext(project) {
   return {
     id: project.id,
-    topic: project.topic,
+    topic: getResearchTopic(project),
+    rawSubject: getRawSubject(project),
     topicPrompt: project.settings?.topicPrompt || "",
     customPrompt: project.settings?.customPrompt || "",
     language: project.language,
@@ -1045,7 +1065,7 @@ function buildAgentContext(project) {
       webhookUrl: project.channel_webhook
     },
     research: project.research ?? null,
-    subject: project.research?.subject || project.topic,
+    subject: project.research?.subject || getRawSubject(project),
     selectedAngle: project.research?.selectedAngle || null,
     angleDiscovery: project.research?.angleDiscovery || [],
     scriptText: project.script_text || "",
@@ -1073,13 +1093,12 @@ async function executeTopicStage(projectId) {
 async function executeResearchStage(projectId) {
   const hydrated = await executeTopicStage(projectId);
   const research = await fetchTrendIdeas({
-    topicPrompt: hydrated.settings?.topicPrompt || hydrated.topic,
-    topic: hydrated.topic,
+    topicPrompt: hydrated.settings?.topicPrompt || getRawSubject(hydrated),
+    topic: getRawSubject(hydrated),
     language: hydrated.language
   });
 
   updateProject(projectId, {
-    topic: research.selectedTopic || hydrated.topic,
     updated_at: new Date().toISOString(),
     research_json: JSON.stringify({
       ...research,
@@ -1093,7 +1112,7 @@ async function executeResearchStage(projectId) {
 async function executeScriptStage(projectId) {
   const project = await executeResearchStage(projectId);
   const script = await generateScript({
-    topic: project.topic,
+    topic: getResearchTopic(project),
     tone: project.tone,
     language: project.language,
     research: project.research,

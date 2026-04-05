@@ -478,72 +478,6 @@ export async function deriveTopicFromPrompt({
   }
 
   return broadSubject || fallback || defaultTopicByLanguage(language);
-
-  const specialTopic = buildTopicFromKeywords(prompt, language);
-  if (specialTopic && specialTopic !== defaultTopicByLanguage(language)) {
-    return specialTopic;
-  }
-
-  const hint = extractTopicHint(prompt, language);
-  if (hint && isTextAlignedWithLanguage(hint, language)) {
-    return hint;
-  }
-
-  const apiKey = process.env.OPENAI_API_KEY;
-  const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
-  const baseUrl = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
-
-  if (apiKey) {
-    try {
-      const response = await fetch(`${baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model,
-          temperature: 0.4,
-          messages: [
-            {
-              role: "system",
-              content: "Turn a creator brief into one concise video topic title. Prefer geopolitics and history-driven topics with strong historical background and current relevance. Return only the final title with no quotes."
-            },
-            {
-              role: "user",
-              content: [
-                `Language: ${language || "ko"}`,
-                "Creator prompt:",
-                prompt
-              ].join("\n")
-            }
-          ]
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const title = trimTopicTitle(data.choices?.[0]?.message?.content || "");
-        if (title) {
-          return title;
-        }
-      }
-    } catch {
-      // Fall back to trend and keyword heuristics below.
-    }
-  }
-
-  try {
-    const trends = await fetchTrendCandidates(language);
-    const selectedTrend = trimTopicTitle(pickBestTrend(prompt, trends));
-    if (selectedTrend) {
-      return selectedTrend;
-    }
-  } catch {
-    // Fall back to keyword summary below.
-  }
-
-  return specialTopic || fallback || defaultTopicByLanguage(language);
 }
 
 function buildResearchSummary(topic, ideas, language) {
@@ -843,6 +777,80 @@ function filterAngleCandidates(angles) {
     .sort((left, right) => angleSelectionScore(right) - angleSelectionScore(left));
 }
 
+function buildRejectedAngles(discoveredAngles, filteredAngles) {
+  const filteredTitles = new Set(filteredAngles.map((item) => item.angleTitle));
+  return discoveredAngles.filter((item) => !filteredTitles.has(item.angleTitle));
+}
+
+function buildAngleSelectionPrompt({ subject, filteredAngles, language }) {
+  const outputLanguage = getOutputLanguageName(language);
+
+  return [
+    'You are a final angle selector for a YouTube longform channel called "Signal Trigger."',
+    "",
+    "Choose exactly one final angle from the candidate list.",
+    "Do not create a new angle.",
+    "Do not pick the safest or most obvious angle.",
+    "",
+    "Selection priority:",
+    "1. Most interesting hidden angle",
+    "2. Strongest storytelling potential",
+    "3. Least predictable angle",
+    "4. Easy for normal viewers to understand",
+    "5. Good for a 10-20 minute longform video",
+    "",
+    "Return valid JSON only in this shape:",
+    '{"selectedAngleTitle":"","selectionReason":""}',
+    "",
+    `Write all text in ${outputLanguage}.`,
+    "",
+    `Broad subject: ${normalizeText(subject) || "none"}`,
+    "Candidates:",
+    filteredAngles.map((item, index) => [
+      `${index + 1}. ${item.angleTitle}`,
+      `- Why interesting: ${item.whyInteresting}`,
+      `- Human drama: ${item.humanDrama}`,
+      `- Hook: ${item.hookAngle}`,
+      `- Scores: curiosity ${item.curiosityScore}, story ${item.storyPotentialScore}, clarity ${item.clarityScore}, predictability ${item.predictabilityScore}`
+    ].join("\n")).join("\n\n")
+  ].join("\n");
+}
+
+async function selectFinalAngle({ subject, filteredAngles, language, apiKey, model, baseUrl }) {
+  if (!filteredAngles.length) {
+    return null;
+  }
+
+  if (apiKey && filteredAngles.length > 1) {
+    try {
+      const raw = await callJsonChat({
+        apiKey,
+        model,
+        baseUrl,
+        temperature: 0.4,
+        systemPrompt: "Select the single best final angle from the given candidates. Return valid JSON only.",
+        userPrompt: buildAngleSelectionPrompt({ subject, filteredAngles, language })
+      });
+      const parsed = JSON.parse(raw);
+      const selectedTitle = normalizeText(parsed?.selectedAngleTitle);
+      const matched = filteredAngles.find((item) => normalizeText(item.angleTitle) === selectedTitle);
+      if (matched) {
+        return {
+          ...matched,
+          selectionReason: normalizeText(parsed?.selectionReason)
+        };
+      }
+    } catch {
+      // fall back below
+    }
+  }
+
+  return {
+    ...filteredAngles[0],
+    selectionReason: "Highest weighted score after hidden-angle filtering."
+  };
+}
+
 function buildFallbackAngleCandidates(subject, trendIdeas, language) {
   const seeds = trendIdeas.length ? trendIdeas : [subject];
 
@@ -1035,7 +1043,15 @@ export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
     }
 
     const filteredAngles = filterAngleCandidates(discoveredAngles);
-    const selectedAngle = filteredAngles[0] || discoveredAngles[0] || {
+    const rejectedAngles = buildRejectedAngles(discoveredAngles, filteredAngles);
+    const selectedAngle = await selectFinalAngle({
+      subject,
+      filteredAngles,
+      language,
+      apiKey: angleApiKey,
+      model: angleModel,
+      baseUrl: angleBaseUrl
+    }) || filteredAngles[0] || discoveredAngles[0] || {
       angleTitle: subject,
       whyInteresting: "",
       humanDrama: "",
@@ -1043,7 +1059,8 @@ export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
       curiosityScore: 5,
       storyPotentialScore: 5,
       clarityScore: 5,
-      predictabilityScore: 5
+      predictabilityScore: 5,
+      selectionReason: ""
     };
 
     let researchBrief;
@@ -1081,6 +1098,7 @@ export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
       selectedTopic: selectedAngle.angleTitle || subject,
       selectedAngle,
       angleDiscovery: discoveredAngles,
+      rejectedAngles,
       filteredAngles,
       ideas,
       summary: [
@@ -1093,7 +1111,15 @@ export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
   } catch {
     const fallbackAngles = buildFallbackAngleCandidates(subject, [subject], language);
     const filteredAngles = filterAngleCandidates(fallbackAngles);
-    const selectedAngle = filteredAngles[0] || fallbackAngles[0];
+    const rejectedAngles = buildRejectedAngles(fallbackAngles, filteredAngles);
+    const selectedAngle = await selectFinalAngle({
+      subject,
+      filteredAngles,
+      language,
+      apiKey: angleApiKey,
+      model: angleModel,
+      baseUrl: angleBaseUrl
+    }) || filteredAngles[0] || fallbackAngles[0];
     const researchBrief = buildFallbackAngleResearch(subject, selectedAngle, language);
 
     return {
@@ -1102,6 +1128,7 @@ export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
       selectedTopic: selectedAngle.angleTitle || subject,
       selectedAngle,
       angleDiscovery: fallbackAngles,
+      rejectedAngles,
       filteredAngles,
       ideas: researchBrief.keyPastEvents,
       summary: [
@@ -1160,7 +1187,7 @@ export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
           if (scoutTopics.length) {
             return {
               source: `story-scout-${normalizeLanguage(language).geo}`,
-              selectedTopic: scoutTopics[0].topicIdea || resolvedTopic,
+              selectedTopic: resolvedTopic,
               ideas: scoutTopics.map((item) => item.topicIdea),
               summary: buildScoutSummary(scoutTopics, language)
             };
@@ -1217,7 +1244,7 @@ export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
 
     return {
       source: `fallback-${normalizeLanguage(language).geo}`,
-      selectedTopic: scoutTopics[0]?.topicIdea || resolvedTopic,
+      selectedTopic: resolvedTopic,
       ideas: scoutTopics.map((item) => item.topicIdea),
       summary: buildScoutSummary(scoutTopics, language)
     };

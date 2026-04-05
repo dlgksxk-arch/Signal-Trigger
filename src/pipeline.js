@@ -33,6 +33,19 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function getRawSubject(project) {
+  return String(project?.settings?.rawSubject || project?.topic || "").trim();
+}
+
+function getResearchTopic(project, research = project?.research) {
+  return (
+    research?.selectedAngle?.angleTitle?.trim()
+    || research?.selectedTopic?.trim()
+    || getRawSubject(project)
+    || "주제 미정"
+  );
+}
+
 function generationStepLabel(step) {
   const labels = {
     topic: "주제 설정",
@@ -225,23 +238,25 @@ async function waitForResumeIfNeeded(projectId, controller, step, detail, extras
 
 async function hydrateRuntimeProject(project) {
   const topicPrompt = project.settings?.topicPrompt || project.topic || "";
+  const currentSubject = getRawSubject(project);
 
-  if (project.topic && !isInstructionLikeTopic(project.topic) && !isWeakResolvedTopic(project.topic) && project.settings?.topicPrompt) {
+  if (currentSubject && !isInstructionLikeTopic(currentSubject) && !isWeakResolvedTopic(currentSubject) && project.settings?.rawSubject) {
     return project;
   }
 
-  const topic = await deriveTopicFromPrompt({
+  const rawSubject = await deriveTopicFromPrompt({
     topicPrompt,
     language: project.language,
-    fallbackTopic: project.topic
+    fallbackTopic: currentSubject
   });
 
   updateProject(project.id, {
-    topic,
+    topic: rawSubject,
     updated_at: nowIso(),
     settings_json: JSON.stringify({
       ...(project.settings ?? {}),
-      topicPrompt
+      topicPrompt,
+      rawSubject
     })
   });
 
@@ -455,13 +470,12 @@ export async function runProject(projectId, options = {}) {
     }
 
     const research = project.research ?? await fetchTrendIdeas({
-      topicPrompt: project.settings?.topicPrompt || project.topic,
-      topic: project.topic,
+      topicPrompt: project.settings?.topicPrompt || getRawSubject(project),
+      topic: getRawSubject(project),
       language: project.language
     });
 
     updateProject(projectId, {
-      topic: research.selectedTopic || project.topic,
       updated_at: nowIso(),
       research_json: JSON.stringify({
         ...research,
@@ -478,7 +492,7 @@ export async function runProject(projectId, options = {}) {
 
     const styleProfile = project.styleProfile ?? await buildStyleProfile(project.style_reference_path, project.format);
     const script = project.script_text ?? await generateScript({
-      topic: research.selectedTopic || project.topic,
+      topic: getResearchTopic(project, research),
       tone: project.tone,
       language: project.language,
       research,
@@ -507,7 +521,7 @@ export async function runProject(projectId, options = {}) {
     const baseScenes = shouldReplanScenes
       ? planScenes({
           script,
-          topic: research.selectedTopic || project.topic,
+          topic: getResearchTopic(project, research),
           tone: project.tone,
           format: project.format,
           styleProfile,
@@ -629,7 +643,7 @@ export async function runProject(projectId, options = {}) {
 
     await buildThumbnail({
       imagePath: scenes[0].imagePath,
-      title: research.selectedTopic || project.topic,
+      title: getResearchTopic(project, research),
       outputPath: thumbnailPath,
       format: project.format,
       scenes,
@@ -676,7 +690,6 @@ export async function runProject(projectId, options = {}) {
     }
 
     updateProject(projectId, {
-      topic: research.selectedTopic || project.topic,
       status: "ready",
       updated_at: nowIso(),
       research_json: JSON.stringify(research),
