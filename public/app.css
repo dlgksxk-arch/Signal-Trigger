@@ -194,7 +194,7 @@ h3 {
 
 .studio-nav-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   padding: 14px 16px;
   border-radius: 16px;
@@ -240,6 +240,86 @@ h3 {
   font-size: 15px;
   font-weight: 800;
   flex: 0 0 auto;
+}
+
+.workflow-step-marker.done {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.14);
+  color: #86efac;
+}
+
+.workflow-step-marker.running {
+  border-color: rgba(245, 158, 11, 0.34);
+  background: rgba(245, 158, 11, 0.16);
+  color: #fcd34d;
+}
+
+.workflow-step-marker.failed {
+  border-color: rgba(239, 68, 68, 0.34);
+  background: rgba(239, 68, 68, 0.16);
+  color: #fda4af;
+}
+
+.workflow-step-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.workflow-step-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.workflow-step-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 0;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.workflow-step-status::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #7a8087;
+}
+
+.workflow-step-status.done {
+  color: #86efac;
+}
+
+.workflow-step-status.done::before {
+  background: #22c55e;
+}
+
+.workflow-step-status.running {
+  color: #fcd34d;
+}
+
+.workflow-step-status.running::before {
+  background: #f59e0b;
+}
+
+.workflow-step-status.failed {
+  color: #fda4af;
+}
+
+.workflow-step-status.failed::before {
+  background: #ef4444;
+}
+
+.workflow-step-status.pending {
+  color: #c0c7d1;
+}
+
+.workflow-step-status.pending::before {
+  background: #6b7280;
 }
 
 .studio-side-card {

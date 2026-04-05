@@ -29,17 +29,20 @@
 
           <% steps.forEach((step) => { %>
             <a
-              class="studio-nav-item workflow-nav-item <%= step.active ? 'active' : '' %>"
+              class="studio-nav-item workflow-nav-item <%= step.active ? 'active' : '' %> <%= step.statusKey %>"
               href="<%= step.href %>"
               data-workflow-link
               data-step-target="<%= step.key %>"
               data-step-label="<%= step.label %>"
               data-step-href="<%= step.href %>"
             >
-              <span class="workflow-step-marker"><%= step.label.split('. ')[0] %></span>
-              <div>
-                <strong><%= step.shortLabel %></strong>
-                <span><%= step.done ? '완료 또는 준비됨' : '작업 대기' %></span>
+              <span class="workflow-step-marker <%= step.statusKey %>"><%= step.label.split('. ')[0] %></span>
+              <div class="workflow-step-meta">
+                <div class="workflow-step-header">
+                  <strong><%= step.shortLabel %></strong>
+                  <span class="workflow-step-status <%= step.statusKey %>"><%= step.statusLabel %></span>
+                </div>
+                <span><%= step.done ? '결과 준비됨' : '다음 작업 대기' %></span>
               </div>
             </a>
           <% }) %>

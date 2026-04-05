@@ -541,26 +541,87 @@ function renderProjectPage(res, projectId, requestedStep, helpAnswer, noticeKey)
 }
 
 function buildWorkflowSteps(project, activeStep) {
-  const scenesReady = Array.isArray(project.scenes) && project.scenes.length > 0;
+  const scenesReady = Array.isArray(project.scenes) && project.scenes.length > 0 && project.scenes.every((scene) => scene.imagePath);
   const videoReady = Boolean(project.output?.videoPath);
+  const uploadStatus = project.output?.uploadStatus || "pending";
 
-  const statusMap = {
+  const completedMap = {
     topic: Boolean(project.topic),
     research: Boolean(project.research?.ideas?.length || project.research?.summary),
     script: Boolean(project.script_text),
     scenes: scenesReady,
     render: videoReady,
-    publish: videoReady
+    publish: uploadStatus === "uploaded"
   };
 
-  return workflowOrder.map((step) => ({
-    key: step,
-    label: stepLabel(step),
-    shortLabel: stepShortLabel(step),
-    href: `/projects/${project.id}/${step}`,
-    active: activeStep === step,
-    done: statusMap[step]
-  }));
+  const runningStep = resolveRunningStep(project, completedMap);
+  const failedStep = resolveFailedStep(project, completedMap);
+
+  return workflowOrder.map((step) => {
+    const statusKey = resolveStepStatus(step, completedMap, runningStep, failedStep);
+
+    return {
+      key: step,
+      label: stepLabel(step),
+      shortLabel: stepShortLabel(step),
+      href: `/projects/${project.id}/${step}`,
+      active: activeStep === step,
+      done: completedMap[step],
+      statusKey,
+      statusLabel: workflowStatusLabel(statusKey)
+    };
+  });
+}
+
+function resolveRunningStep(project, completedMap) {
+  if (project.output?.uploadStatus === "uploading") {
+    return "publish";
+  }
+
+  if (project.status !== "running") {
+    return null;
+  }
+
+  return workflowOrder.find((step) => !completedMap[step] && step !== "publish") || "render";
+}
+
+function resolveFailedStep(project, completedMap) {
+  if (project.output?.uploadStatus === "failed") {
+    return "publish";
+  }
+
+  if (project.status !== "failed") {
+    return null;
+  }
+
+  return workflowOrder.find((step) => !completedMap[step] && step !== "publish") || "render";
+}
+
+function resolveStepStatus(step, completedMap, runningStep, failedStep) {
+  if (step === failedStep) {
+    return "failed";
+  }
+
+  if (step === runningStep) {
+    return "running";
+  }
+
+  if (completedMap[step]) {
+    return "done";
+  }
+
+  return "pending";
+}
+
+function workflowStatusLabel(statusKey) {
+  const labels = {
+    done: "완료",
+    running: "진행중",
+    pending: "대기",
+    failed: "실패"
+  };
+
+  return labels[statusKey] || "대기";
 }
 
 function stepLabel(step) {
