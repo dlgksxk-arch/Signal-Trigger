@@ -27,11 +27,8 @@ import {
   startProjectAutomation
 } from "./pipeline.js";
 import {
-  deriveTopicFromPrompt,
   fetchTrendIdeas,
-  generateScript,
-  isInstructionLikeTopic,
-  isWeakResolvedTopic
+  generateScript
 } from "./services/content.js";
 import { getVersionLabel } from "./version.js";
 
@@ -306,6 +303,7 @@ export function createApp() {
       subject: getRawSubject(project),
       selectedTopic: getResearchTopic(project),
       selectedAngle: project.research?.selectedAngle || null,
+      discoveredAngles: project.research?.discoveredAngles || project.research?.angleDiscovery || [],
       angleDiscovery: project.research?.angleDiscovery || [],
       rejectedAngles: project.research?.rejectedAngles || [],
       filteredAngles: project.research?.filteredAngles || [],
@@ -981,15 +979,7 @@ async function resolveTopicFromInput({ topicPrompt, language, tone, fallbackTopi
   if (!prompt) {
     return fallbackTopic?.trim() || "주제 미정";
   }
-
-  const resolvedTopic = await deriveTopicFromPrompt({
-    topicPrompt: prompt,
-    language,
-    tone,
-    fallbackTopic
-  });
-
-  return resolvedTopic?.trim() || fallbackTopic?.trim() || "주제 미정";
+  return prompt || fallbackTopic?.trim() || "주제 미정";
 }
 
 function getRawSubject(project) {
@@ -1007,19 +997,11 @@ function getResearchTopic(project, research = project?.research) {
 
 async function hydrateProjectTopic(project) {
   const topicPrompt = project.settings?.topicPrompt || project.topic || "";
-  const currentSubject = getRawSubject(project);
-  const needsResolution = !currentSubject || isInstructionLikeTopic(currentSubject) || isWeakResolvedTopic(currentSubject);
+  const rawSubject = normalizeTopicPrompt(topicPrompt) || getRawSubject(project);
 
-  if (!needsResolution && project.settings?.rawSubject) {
+  if (!rawSubject) {
     return project;
   }
-
-  const rawSubject = await resolveTopicFromInput({
-    topicPrompt,
-    language: project.language,
-    tone: project.tone,
-    fallbackTopic: currentSubject
-  });
 
   const nextSettings = {
     ...(project.settings ?? {}),
@@ -1027,8 +1009,11 @@ async function hydrateProjectTopic(project) {
     rawSubject
   };
 
+  if (project.settings?.rawSubject === rawSubject) {
+    return project;
+  }
+
   updateProject(project.id, {
-    topic: rawSubject,
     updated_at: new Date().toISOString(),
     settings_json: JSON.stringify(nextSettings)
   });
@@ -1067,7 +1052,10 @@ function buildAgentContext(project) {
     research: project.research ?? null,
     subject: project.research?.subject || getRawSubject(project),
     selectedAngle: project.research?.selectedAngle || null,
+    discoveredAngles: project.research?.discoveredAngles || project.research?.angleDiscovery || [],
     angleDiscovery: project.research?.angleDiscovery || [],
+    rejectedAngles: project.research?.rejectedAngles || [],
+    filteredAngles: project.research?.filteredAngles || [],
     scriptText: project.script_text || "",
     scriptLength: project.script_text?.length || 0,
     scenesCount: project.scenes?.length || 0,

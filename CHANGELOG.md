@@ -1,5 +1,10 @@
 ﻿# 蹂寃?湲곕줉
 
+## V1.0.36
+- hydrateProjectTopic() and hydrateRuntimeProject() no longer derive or finalize a topic; they only preserve rawSubject metadata.
+- Research, script, scene, render, upload payload, and agent context now use selectedAngle separately from raw subject.
+- The topic pipeline now keeps raw subject, discovered angles, rejected angles, and final selected angle as separate states.
+
 ## V1.0.35
 - Raw subject, selected angle, filtered angles, and rejected angles are now stored separately.
 - Research no longer overwrites project.topic, and downstream script/render stages now use the final selected angle intentionally.
@@ -67,4 +72,5 @@
 
 ## V1.0.16
 - ?꾨줈?앺듃 ??젣 湲곕뒫??異붽??섍퀬 ?앹꽦??異쒕젰 ?대뜑源뚯? ?④퍡 ??젣?섎룄濡?援ы쁽?덉뒿?덈떎.
+
 

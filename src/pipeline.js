@@ -4,12 +4,9 @@ import { getProject, projectsRoot, updateProject } from "./db.js";
 import {
   answerHelpQuestion,
   buildStyleProfile,
-  deriveTopicFromPrompt,
   fetchTrendIdeas,
   generateScript,
   getTargetSceneCount,
-  isInstructionLikeTopic,
-  isWeakResolvedTopic,
   planScenes
 } from "./services/content.js";
 import {
@@ -238,20 +235,17 @@ async function waitForResumeIfNeeded(projectId, controller, step, detail, extras
 
 async function hydrateRuntimeProject(project) {
   const topicPrompt = project.settings?.topicPrompt || project.topic || "";
-  const currentSubject = getRawSubject(project);
+  const rawSubject = String(topicPrompt || getRawSubject(project) || "").trim();
 
-  if (currentSubject && !isInstructionLikeTopic(currentSubject) && !isWeakResolvedTopic(currentSubject) && project.settings?.rawSubject) {
+  if (!rawSubject) {
     return project;
   }
 
-  const rawSubject = await deriveTopicFromPrompt({
-    topicPrompt,
-    language: project.language,
-    fallbackTopic: currentSubject
-  });
+  if (project.settings?.rawSubject === rawSubject) {
+    return project;
+  }
 
   updateProject(project.id, {
-    topic: rawSubject,
     updated_at: nowIso(),
     settings_json: JSON.stringify({
       ...(project.settings ?? {}),

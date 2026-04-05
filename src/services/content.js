@@ -1,4 +1,4 @@
-import fs from "node:fs";
+﻿import fs from "node:fs";
 import googleTrends from "google-trends-api";
 import sharp from "sharp";
 
@@ -72,10 +72,10 @@ function defaultTopicByLanguage(language) {
   }
 
   if (language === "ja") {
-    return "今日いちばん 중요한 이슈";
+    return "餓딀뿥?꾠걾?겹굯 以묒슂???댁뒋";
   }
 
-  return "오늘 가장 중요한 핵심 이슈";
+  return "?ㅻ뒛 媛??以묒슂???듭떖 ?댁뒋";
 }
 
 const instructionHints = [
@@ -91,8 +91,8 @@ const instructionHints = [
   "prompt",
   "프롬프트",
   "당신은",
-  "해 주세요",
-  "해주세요",
+  "써줘",
+  "설명해",
   "작성해",
   "생성해",
   "선정해",
@@ -140,7 +140,7 @@ const historyPriorityKeywords = [
   "history", "historical", "empire", "dynasty", "colonial", "legacy", "treaty", "border",
   "war", "civil war", "revolution", "cold war", "regime", "kingdom", "occupation", "annexation",
   "geopolit", "territory", "alliance", "diplom", "sanction", "proxy", "religion", "ethnic",
-  "역사", "제국", "왕조", "식민", "조약", "국경", "전쟁", "혁명", "냉전", "정권", "점령", "합병", "영토", "외교"
+  "??궗", "?쒓뎅", "?뺤“", "?앸?", "議곗빟", "援?꼍", "?꾩웳", "?곷챸", "?됱쟾", "?뺢텒", "?먮졊", "?⑸퀝", "?곹넗", "?멸탳"
 ];
 
 function historyPriorityScore(text) {
@@ -170,12 +170,13 @@ export function isInstructionLikeTopic(value) {
 
 export function isWeakResolvedTopic(value) {
   const text = normalizeText(value).toLowerCase();
+  const weakKoreanDefault = normalizeText(defaultTopicByLanguage("ko")).toLowerCase();
 
   return (
     !text
     || /^how did we get here[?!.]*$/i.test(text)
     || /^the one issue that matters most today[?!.]*$/i.test(text)
-    || /^오늘 가장 중요한 핵심 이슈[.!?]*$/i.test(text)
+    || text === weakKoreanDefault
     || /^a real, current, major international headline or geopolitical issue[.!?]*$/i.test(text)
   );
 }
@@ -215,7 +216,7 @@ function extractTopicHint(prompt, language) {
       ]
     : [
         /주제로\s+(.+?)(?:[.?!]|$)/,
-        /에 대해\s+(.+?)(?:[.?!]|$)/,
+        /다뤄줘\s+(.+?)(?:[.?!]|$)/,
         /관한\s+(.+?)(?:[.?!]|$)/
       ];
 
@@ -262,7 +263,7 @@ function extractTopicHint(prompt, language) {
 function extractKeywords(prompt) {
   const tokens = normalizeText(prompt)
     .toLowerCase()
-    .replace(/[^a-z0-9가-힣ぁ-んァ-ヶー一-龯\s]/g, " ")
+    .replace(/[^a-z0-9가-힣ぁ-ゔァ-ヴー々〆〤一-龯\s]/g, " ")
     .split(/\s+/)
     .map((token) => token.trim())
     .filter((token) => token.length >= 2)
@@ -317,19 +318,19 @@ function buildTopicFromKeywords(prompt, language) {
   if (lowerPrompt.includes("geopolit")) {
     return language === "en"
       ? "Today's geopolitical flashpoints reshaping global power"
-      : "오늘 가장 중요한 지정학 변수";
+      : "오늘의 지정학 변수";
   }
 
   if (lowerPrompt.includes("headline") || lowerPrompt.includes("news") || lowerPrompt.includes("국제 뉴스")) {
     return language === "en"
       ? "The global headlines that matter most today"
-      : "오늘 가장 중요한 국제 뉴스";
+      : "오늘의 국제 뉴스";
   }
 
   if (lowerPrompt.includes("semiconductor") || lowerPrompt.includes("반도체")) {
     return language === "en"
       ? "The semiconductor shift the market cannot ignore"
-      : "지금 꼭 봐야 할 반도체 핵심 이슈";
+      : "지금 봐야 할 반도체 이슈";
   }
 
   if (lowerPrompt.includes("ai") || lowerPrompt.includes("인공지능")) {
@@ -349,10 +350,10 @@ function buildTopicFromKeywords(prompt, language) {
   }
 
   if (language === "ja") {
-    return trimTopicTitle(`${keywords.join(" ")} 지금 봐야 할 핵심 포인트`);
+    return trimTopicTitle(`${keywords.join(" ")} 今いちばん大事な話`);
   }
 
-  return trimTopicTitle(`${keywords.join(" ")} 지금 봐야 할 핵심 포인트`);
+  return trimTopicTitle(`${keywords.join(" ")} 지금 봐야 할 이슈`);
 }
 
 function buildBroadSubjectFromPrompt(prompt, language) {
@@ -363,7 +364,7 @@ function buildBroadSubjectFromPrompt(prompt, language) {
   }
 
   if (lowerPrompt.includes("headline") || lowerPrompt.includes("news") || lowerPrompt.includes("breaking")) {
-    return language === "en" ? "Current global news" : "국제 이슈";
+    return language === "en" ? "Current global news" : "국제 뉴스";
   }
 
   if (lowerPrompt.includes("semiconductor")) {
@@ -491,56 +492,13 @@ function buildResearchSummary(topic, ideas, language) {
 
   if (language === "ja") {
     return headline
-      ? `"${topic}" 기준으로 저장했습니다. 우선 볼 신호는 ${headline} 입니다.`
-      : `"${topic}" 기준으로 리서치를 저장했습니다.`;
+      ? `"${topic}" 湲곗??쇰줈 ??ν뻽?듬땲?? ?곗꽑 蹂??좏샇??${headline} ?낅땲??`
+      : `"${topic}" 湲곗??쇰줈 由ъ꽌移섎? ??ν뻽?듬땲??`;
   }
 
   return headline
-    ? `"${topic}" 기준으로 리서치를 정리했습니다. 우선 볼 신호는 ${headline}입니다.`
-    : `"${topic}" 기준으로 리서치를 저장했습니다.`;
-}
-
-async function fetchTrendIdeasLegacy({ topicPrompt, topic, language }) {
-  const resolvedTopic = trimTopicTitle(topic || "")
-    || await deriveTopicFromPrompt({ topicPrompt, language, fallbackTopic: topic });
-
-  try {
-    const ideas = (await fetchTrendCandidates(language))
-      .sort((left, right) => historyPriorityScore(right) - historyPriorityScore(left))
-      .slice(0, 12);
-
-    return {
-      source: `google-daily-trends-${normalizeLanguage(language).geo}`,
-      selectedTopic: resolvedTopic,
-      ideas,
-      summary: buildResearchSummary(resolvedTopic, ideas, language)
-    };
-  } catch {
-    const fallbackIdeas = language === "en"
-      ? [
-          `${resolvedTopic} background`,
-          `Why ${resolvedTopic} matters now`,
-          `${resolvedTopic} key stakeholders`,
-          `What comes next for ${resolvedTopic}`,
-          `Viewer questions about ${resolvedTopic}`,
-          `${resolvedTopic} episode structure`
-        ]
-      : [
-          `${resolvedTopic} 핵심 배경`,
-          `${resolvedTopic} 지금 중요한 이유`,
-          `${resolvedTopic} 이해관계자`,
-          `${resolvedTopic} 다음 전개`,
-          `${resolvedTopic} 시청자 관점 질문`,
-          `${resolvedTopic} 영상 구성 포인트`
-        ];
-
-    return {
-      source: `fallback-${normalizeLanguage(language).geo}`,
-      selectedTopic: resolvedTopic,
-      ideas: fallbackIdeas,
-      summary: buildResearchSummary(resolvedTopic, fallbackIdeas, language)
-    };
-  }
+    ? `"${topic}" 湲곗??쇰줈 由ъ꽌移섎? ?뺣━?덉뒿?덈떎. ?곗꽑 蹂??좏샇??${headline}?낅땲??`
+    : `"${topic}" 湲곗??쇰줈 由ъ꽌移섎? ??ν뻽?듬땲??`;
 }
 
 function buildResearchScoutPrompt({ topicPrompt, topic, language, trendIdeas }) {
@@ -661,7 +619,7 @@ function buildScoutSummary(topicCards, language) {
     return blocks.join("\n\n");
   }
 
-  return language === "en" ? "No scout result was generated." : "스토리 스카우트 결과가 없습니다.";
+  return language === "en" ? "No scout result was generated." : "?ㅽ넗由??ㅼ뭅?고듃 寃곌낵媛 ?놁뒿?덈떎.";
 }
 
 function buildFallbackScoutTopics(resolvedTopic, trendIdeas, language) {
@@ -677,9 +635,9 @@ function buildFallbackScoutTopics(resolvedTopic, trendIdeas, language) {
 
     return {
       topicIdea: idea,
-      whyItGrabsAttention: `${idea} 자체에 갈등과 반전이 보여서 바로 궁금증을 만들 수 있습니다.`,
-      whyItWouldMakeAGreatVideo: `${resolvedTopic}와 연결해 길게 풀기 쉽고, 일반 시청자도 이해하기 좋은 이야기 구조를 만들 수 있습니다.`,
-      suggestedHookAngle: `${idea}가 왜 생각보다 더 이상하고 위험한 이야기인지 한 줄로 먼저 던지면 좋습니다.`
+      whyItGrabsAttention: `${idea} ?먯껜??媛덈벑怨?諛섏쟾??蹂댁뿬??諛붾줈 沅곴툑利앹쓣 留뚮뱾 ???덉뒿?덈떎.`,
+      whyItWouldMakeAGreatVideo: `${resolvedTopic}? ?곌껐??湲멸쾶 ?湲??쎄퀬, ?쇰컲 ?쒖껌?먮룄 ?댄빐?섍린 醫뗭? ?댁빞湲?援ъ“瑜?留뚮뱾 ???덉뒿?덈떎.`,
+      suggestedHookAngle: `${idea}媛 ???앷컖蹂대떎 ???댁긽?섍퀬 ?꾪뿕???댁빞湲곗씤吏 ??以꾨줈 癒쇱? ?섏?硫?醫뗭뒿?덈떎.`
     };
   });
 }
@@ -878,10 +836,10 @@ function buildFallbackAngleCandidates(subject, trendIdeas, language) {
     }
 
     return {
-      angleTitle: `${seed} 뒤에 숨은 오래된 갈등`,
-      whyInteresting: `${seed}를 딱딱한 설명이 아니라 이야기로 바꿉니다.`,
-      humanDrama: `${seed} 안의 배신, 두려움, 자존심, 복수`,
-      hookAngle: `${seed}가 왜 생각보다 훨씬 오래된 이야기인지 바로 여는 방식`,
+      angleTitle: `${seed} ?ㅼ뿉 ?⑥? ?ㅻ옒??媛덈벑`,
+      whyInteresting: `${seed}瑜??깅뵳???ㅻ챸???꾨땲???댁빞湲곕줈 諛붽퓠?덈떎.`,
+      humanDrama: `${seed} ?덉쓽 諛곗떊, ?먮젮?, ?먯〈?? 蹂듭닔`,
+      hookAngle: `${seed}媛 ???앷컖蹂대떎 ?⑥뵮 ?ㅻ옒???댁빞湲곗씤吏 諛붾줈 ?щ뒗 諛⑹떇`,
       curiosityScore: 7,
       storyPotentialScore: 7,
       clarityScore: 7,
@@ -957,11 +915,11 @@ function buildAngleDiscoverySummary(subject, selectedAngle, filteredAngles, lang
   }
 
   return [
-    `주제: ${subject}`,
-    `선택 각도: ${selectedAngle?.angleTitle || subject}`,
+    `二쇱젣: ${subject}`,
+    `?좏깮 媛곷룄: ${selectedAngle?.angleTitle || subject}`,
     "",
-    "상위 발견 각도:",
-    candidates || "없음"
+    "?곸쐞 諛쒓껄 媛곷룄:",
+    candidates || "?놁쓬"
   ].join("\n");
 }
 
@@ -986,14 +944,14 @@ function buildFallbackAngleResearch(subject, selectedAngle, language) {
   }
 
   return {
-    summary: `${selectedAngle.angleTitle}는 ${subject}를 뻔한 설명이 아니라 드라마가 있는 이야기로 바꿉니다.`,
-    hiddenPastStory: `${selectedAngle.angleTitle} 뒤에는 오래된 두려움, 자존심, 오판, 기억이 계속 남아 있습니다.`,
+    summary: `${selectedAngle.angleTitle}는 ${subject} 안에 숨은 이야기 각도입니다.`,
+    hiddenPastStory: `${selectedAngle.angleTitle} 뒤에는 오래된 감정, 계산, 기억이 남아 있습니다.`,
     keyPastEvents: [
       `${subject}의 방향을 바꾼 첫 결정`,
-      "입장을 굳혀 버린 배신 또는 굴욕",
-      "타협을 더 어렵게 만든 확대 국면",
-      "외부 세력이 판을 바꾼 순간",
-      "과거 긴장을 현재로 다시 끌어온 방아쇠"
+      "입장을 굳힌 배신 또는 굴욕",
+      "사태를 더 어렵게 만든 오판 장면",
+      "힘의 균형을 바꾼 순간",
+      "과거 긴장이 현재로 다시 터져 나온 계기"
     ],
     researchNotes: [
       selectedAngle.whyInteresting,
@@ -1097,6 +1055,7 @@ export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
       subject,
       selectedTopic: selectedAngle.angleTitle || subject,
       selectedAngle,
+      discoveredAngles,
       angleDiscovery: discoveredAngles,
       rejectedAngles,
       filteredAngles,
@@ -1127,6 +1086,7 @@ export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
       subject,
       selectedTopic: selectedAngle.angleTitle || subject,
       selectedAngle,
+      discoveredAngles: fallbackAngles,
       angleDiscovery: fallbackAngles,
       rejectedAngles,
       filteredAngles,
@@ -1137,116 +1097,6 @@ export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
         researchBrief.hiddenPastStory
       ].filter(Boolean).join("\n\n"),
       researchNotes: researchBrief.researchNotes || []
-    };
-  }
-
-  const resolvedTopic = trimTopicTitle(topic || "")
-    || await deriveTopicFromPrompt({ topicPrompt, language, fallbackTopic: topic });
-
-  try {
-    const trendIdeas = (await fetchTrendCandidates(language))
-      .sort((left, right) => historyPriorityScore(right) - historyPriorityScore(left))
-      .slice(0, 15);
-
-    const apiKey = process.env.OPENAI_API_KEY;
-    const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
-    const baseUrl = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
-
-    if (apiKey) {
-      try {
-        const response = await fetch(`${baseUrl}/chat/completions`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            model,
-            temperature: 0.9,
-            messages: [
-              {
-                role: "system",
-                content: "You scout highly clickable real-world story ideas for YouTube. Return valid JSON only."
-              },
-              {
-                role: "user",
-                content: buildResearchScoutPrompt({
-                  topicPrompt,
-                  topic: resolvedTopic,
-                  language,
-                  trendIdeas
-                })
-              }
-            ]
-          })
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const scoutTopics = parseScoutTopics(data.choices?.[0]?.message?.content || "").slice(0, 15);
-          if (scoutTopics.length) {
-            return {
-              source: `story-scout-${normalizeLanguage(language).geo}`,
-              selectedTopic: resolvedTopic,
-              ideas: scoutTopics.map((item) => item.topicIdea),
-              summary: buildScoutSummary(scoutTopics, language)
-            };
-          }
-        }
-      } catch {
-        // fall back below
-      }
-    }
-
-    return {
-      source: `google-daily-trends-${normalizeLanguage(language).geo}`,
-      selectedTopic: resolvedTopic,
-      ideas: trendIdeas,
-      summary: buildResearchSummary(resolvedTopic, trendIdeas, language)
-    };
-  } catch {
-    const fallbackIdeas = language === "en"
-      ? [
-          `${resolvedTopic} background`,
-          `Why ${resolvedTopic} matters now`,
-          `${resolvedTopic} key stakeholders`,
-          `What comes next for ${resolvedTopic}`,
-          `Viewer questions about ${resolvedTopic}`,
-          `${resolvedTopic} episode structure`,
-          `${resolvedTopic} hidden rivalry`,
-          `${resolvedTopic} worst decision`,
-          `${resolvedTopic} revenge angle`,
-          `${resolvedTopic} forgotten trigger`,
-          `${resolvedTopic} dangerous turning point`,
-          `${resolvedTopic} strange alliance`,
-          `${resolvedTopic} humiliation story`,
-          `${resolvedTopic} collapse scenario`,
-          `${resolvedTopic} insane real story`
-        ]
-      : [
-          `${resolvedTopic} 핵심 배경`,
-          `${resolvedTopic} 지금 중요한 이유`,
-          `${resolvedTopic} 이해관계자`,
-          `${resolvedTopic} 다음 전개`,
-          `${resolvedTopic} 시청자 관심 질문`,
-          `${resolvedTopic} 영상 구성 포인트`,
-          `${resolvedTopic} 숨은 갈등`,
-          `${resolvedTopic} 최악의 결정`,
-          `${resolvedTopic} 복수 서사`,
-          `${resolvedTopic} 잊힌 시작점`,
-          `${resolvedTopic} 위험한 분기점`,
-          `${resolvedTopic} 이상한 동맹`,
-          `${resolvedTopic} 굴욕의 순간`,
-          `${resolvedTopic} 붕괴 시나리오`,
-          `${resolvedTopic} 믿기 힘든 실화`
-        ];
-    const scoutTopics = buildFallbackScoutTopics(resolvedTopic, fallbackIdeas, language);
-
-    return {
-      source: `fallback-${normalizeLanguage(language).geo}`,
-      selectedTopic: resolvedTopic,
-      ideas: scoutTopics.map((item) => item.topicIdea),
-      summary: buildScoutSummary(scoutTopics, language)
     };
   }
 }
@@ -1318,27 +1168,27 @@ const editorialScenePromptBase = [
 function buildSceneVisualAngle(paragraph, index) {
   const text = normalizeText(paragraph).toLowerCase();
 
-  if (/nuclear|missile|warhead|핵|미사일/.test(text)) {
+  if (/(nuclear|missile|warhead|핵|미사일)/.test(text)) {
     return "missile silo, launch control room, nuclear map table, warning lights, geopolitical tension";
   }
 
-  if (/sanction|trade|economy|market|oil|gas|supply chain|제재|무역|경제|원유|가스/.test(text)) {
+  if (/(sanction|trade|economy|market|oil|gas|supply chain|제재|무역|경제|석유|가스)/.test(text)) {
     return "trade route map, cargo port, oil facility, currency chart, sanctions documents, industrial backdrop";
   }
 
-  if (/border|territory|sea|strait|navy|fleet|island|국경|영해|해협|함대/.test(text)) {
+  if (/(border|territory|sea|strait|navy|fleet|island|국경|영해|해협|함대)/.test(text)) {
     return "border checkpoint, contested sea map, naval vessels, surveillance view, strategic geography";
   }
 
-  if (/protest|revolution|uprising|riot|coup|정권|혁명|시위|쿠데타/.test(text)) {
+  if (/(protest|revolution|uprising|riot|coup|정권|혁명|시위|쿠데타)/.test(text)) {
     return "street protest, state building, riot police silhouette, torn flags, regime pressure";
   }
 
-  if (/diplom|summit|negotiat|treaty|alliance|유럽연합|정상회담|외교|협상|동맹/.test(text)) {
+  if (/(diplom|summit|negotiat|treaty|alliance|조약|정상회담|외교|협상|동맹)/.test(text)) {
     return "summit table, handshake under tension, treaty papers, flags, guarded diplomatic chamber";
   }
 
-  if (/history|empire|legacy|colonial|archival|historical|역사|제국|식민/.test(text)) {
+  if (/(history|empire|legacy|colonial|archival|historical|역사|제국|왕조)/.test(text)) {
     return "archival documents, faded map, old palace or fortress, historical uniforms, layered timeline imagery";
   }
 
@@ -1396,18 +1246,18 @@ function buildFallbackParagraphs({ topic, language, research, customPrompt, tone
   }
 
   const paragraphs = [
-    `이번 영상에서는 ${safeTopic}를 약 ${minutes}분 분량으로 풀어갑니다. 도입, 본문, 마무리가 분명하게 이어지도록 구성합니다.`,
-    `${safeTopic}를 추상적으로 설명하지 않고 ${ideas.join(", ") || "최근 시청자 관심 질문"}과 연결해서 왜 지금 봐야 하는지부터 짚습니다.`
+    `이번 영상에서는 ${safeTopic}를 약 ${minutes}분 분량으로 쉽게 풀어갑니다.`,
+    `${safeTopic}를 추상적으로 설명하지 않고 ${ideas.join(", ") || "최근 시청자 질문"}과 연결해서 왜 지금 봐야 하는지부터 짚습니다.`
   ];
 
   for (let index = 0; index < bodyCount; index += 1) {
     const idea = ideas[index % Math.max(ideas.length, 1)] || safeTopic;
     paragraphs.push(
-      `${idea}를 중심으로 현재 상황, 중요한 이유, 앞으로의 전개, 그리고 시청자가 바로 이해해야 할 핵심만 ${tone || "정보형"} 톤으로 설명합니다.`
+      `${idea}를 중심으로 현재 상황, 중요한 이유, 앞으로의 전개, 그리고 시청자가 바로 이해해야 할 포인트를 ${tone || "정보형"} 톤으로 설명합니다.`
     );
   }
 
-  paragraphs.push("마지막에는 오늘 꼭 기억할 핵심, 다음에 볼 포인트, 그리고 영상 설명란에 넣기 좋은 정리 문장까지 자연스럽게 마무리합니다.");
+  paragraphs.push("마지막에는 오늘 이슈의 의미와 다음에 볼 변수까지 자연스럽게 정리합니다.");
 
   if (customPrompt) {
     paragraphs.push(`추가 지시 반영 메모: ${customPrompt}`);
@@ -1461,7 +1311,7 @@ export async function generateScript({ topic, tone, language, research, customPr
     "The viewer should feel:",
     "\"Wait, what?\"",
     "\"No way this started that far back.\"",
-    "\"So THAT’S why this is happening.\"",
+    "\"So THAT?셎 why this is happening.\"",
     "\"How did this spiral into this?\"",
     "\"I need to hear the rest.\"",
     "",
@@ -1475,16 +1325,16 @@ export async function generateScript({ topic, tone, language, research, customPr
     "- a story of revenge, fear, pride, humiliation, ambition, collapse, and consequences that never died",
     "",
     "Core writing rules:",
-    "1. Hook the viewer immediately in the first 2–4 sentences.",
+    "1. Hook the viewer immediately in the first 2?? sentences.",
     "2. The first 30 seconds must feel like the opening of a dangerous secret from history, not a normal news explanation.",
     "3. Do NOT begin with generic context, definitions, or broad statements.",
-    "4. Do NOT start with “In today’s video” or anything similar.",
+    "4. Do NOT start with ?쏧n today?셲 video??or anything similar.",
     "5. Start with tension, irony, shock, betrayal, danger, or a question that instantly creates curiosity.",
     "6. The opening should feel like:",
     "   - a buried grudge resurfacing",
     "   - an old betrayal exploding into the present",
     "   - a forgotten decision that poisoned the future",
-    "7. Write like you are telling the viewer the true story behind today’s headline — the part most people never hear.",
+    "7. Write like you are telling the viewer the true story behind today?셲 headline ??the part most people never hear.",
     "8. Keep the language clear, vivid, natural, and spoken.",
     "9. Use easier spoken language, shorter sentences, and cleaner wording than a typical documentary script.",
     "10. Prioritize momentum, curiosity, emotional tension, and narrative flow over formal explanation.",
@@ -1508,7 +1358,7 @@ export async function generateScript({ topic, tone, language, research, customPr
     "16. Avoid filler, repetition, dead transitions, and overlong explanations.",
     "17. Keep it serious, cinematic, easy to follow, and emotionally immediate.",
     "18. Keep the pacing alive. Do not let the energy sag.",
-    "19. The final section should make today’s headline feel tragic, inevitable, or deeply unsettling.",
+    "19. The final section should make today?셲 headline feel tragic, inevitable, or deeply unsettling.",
     "20. The ending should leave the viewer with the feeling:",
     "\"This was never really over.\"",
     "",
@@ -1542,7 +1392,7 @@ export async function generateScript({ topic, tone, language, research, customPr
     `- Match roughly ${minutes} minutes of spoken runtime`,
     "- Keep it as one continuous narration flow",
     "- Use paragraph breaks",
-    "- Do not label sections such as Intro, Body, Conclusion, 인트로, 본론, 결론",
+    "- Do not label sections such as Intro, Body, Conclusion, ?명듃濡? 蹂몃줎, 寃곕줎",
     "- Do not include music cues or stage directions such as [Intro music], [BGM], [Music]",
     tone ? `- Preferred voice tone: ${tone}` : "",
     customPrompt ? `- Additional channel direction: ${customPrompt}` : "",
@@ -1697,5 +1547,6 @@ export function answerHelpQuestion(project, question) {
     return "스타일 레퍼런스 이미지가 있으면 색상 팔레트를 추출해서 장면 프롬프트에 반영합니다.";
   }
 
-  return `현재 장면 수는 ${project.scenes.length}개이고 프로젝트 상태는 ${project.status}입니다. 질문을 더 구체적으로 입력하면 바로 안내해 드립니다.`;
+  return `현재 장면 수는 ${project.scenes.length}개이고 프로젝트 상태는 ${project.status}입니다. 질문을 구체적으로 입력하시면 바로 안내해 드립니다.`;
 }
+
