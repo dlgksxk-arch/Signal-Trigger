@@ -411,6 +411,20 @@ small {
   color: var(--muted);
 }
 
+.inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.inline-check input {
+  width: auto;
+  margin: 0;
+}
+
 .lead-text {
   margin-top: 12px;
   max-width: 760px;

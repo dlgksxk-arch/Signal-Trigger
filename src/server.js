@@ -139,13 +139,20 @@ export function createApp() {
     }
   );
 
-  app.post("/projects/:id/settings", async (req, res) => {
+  app.post("/projects/:id/settings",
+    upload.fields([
+      { name: "styleReference", maxCount: 1 },
+      { name: "bgmFile", maxCount: 1 },
+      { name: "watermarkFile", maxCount: 1 }
+    ]),
+    async (req, res) => {
     const project = getProject(req.params.id);
     if (!project) {
       res.status(404).send("프로젝트를 찾을 수 없습니다.");
       return;
     }
 
+    const files = req.files;
     const durationMinutes = parseDurationMinutes(req.body.durationMinutes, project.settings?.durationMinutes || 10);
     const topicPrompt = normalizeTopicPrompt(
       req.body.topicPrompt || req.body.topic || project.settings?.topicPrompt || project.topic
@@ -158,6 +165,21 @@ export function createApp() {
       tone,
       fallbackTopic: project.topic
     });
+    const styleReferencePath = resolveProjectAssetPath({
+      currentPath: project.style_reference_path,
+      uploadedPath: files?.styleReference?.[0]?.path || null,
+      clearRequested: req.body.clearStyleReference === "true"
+    });
+    const bgmPath = resolveProjectAssetPath({
+      currentPath: project.bgm_path,
+      uploadedPath: files?.bgmFile?.[0]?.path || null,
+      clearRequested: req.body.clearBgmFile === "true"
+    });
+    const watermarkPath = resolveProjectAssetPath({
+      currentPath: project.watermark_path,
+      uploadedPath: files?.watermarkFile?.[0]?.path || null,
+      clearRequested: req.body.clearWatermarkFile === "true"
+    });
 
     updateProject(project.id, {
       topic: resolvedTopic,
@@ -166,12 +188,18 @@ export function createApp() {
       format: req.body.format?.trim() || project.format,
       channel_id: req.body.channelId?.trim() || null,
       scheduled_at: req.body.scheduledAt?.trim() || null,
+      style_reference_path: styleReferencePath,
+      bgm_path: bgmPath,
+      watermark_path: watermarkPath,
       updated_at: new Date().toISOString(),
       settings_json: JSON.stringify({
         ...(project.settings ?? {}),
         topicPrompt,
         customPrompt: req.body.customPrompt?.trim() || "",
-        durationMinutes
+        durationMinutes,
+        bgmEnabled: Boolean(bgmPath),
+        watermarkEnabled: Boolean(watermarkPath),
+        styleConsistency: Boolean(styleReferencePath)
       })
     });
 
@@ -587,6 +615,11 @@ function renderProjectPage(res, projectId, requestedStep, helpAnswer, noticeKey)
   const steps = buildWorkflowSteps(project, activeStep);
   const generationView = buildGenerationView(project);
   const topicPromptText = project.settings?.topicPrompt || project.topic || "";
+  const optionFiles = {
+    styleReferenceName: project.style_reference_path ? path.basename(project.style_reference_path) : null,
+    bgmName: project.bgm_path ? path.basename(project.bgm_path) : null,
+    watermarkName: project.watermark_path ? path.basename(project.watermark_path) : null
+  };
 
   res.render("project", {
     project,
@@ -598,6 +631,7 @@ function renderProjectPage(res, projectId, requestedStep, helpAnswer, noticeKey)
     generationView,
     durationOptions,
     noticeMessage: getNoticeMessage(noticeKey),
+    optionFiles,
     topicPromptText,
     researchIdeasText: (project.research?.ideas ?? []).join("\n"),
     researchSummaryText: project.research?.summary ?? "",
@@ -897,6 +931,36 @@ function normalizeTopicPrompt(value) {
   return String(value ?? "")
     .replace(/\r\n/g, "\n")
     .trim();
+}
+
+function cleanupProjectAsset(filePath) {
+  if (!filePath) {
+    return;
+  }
+
+  try {
+    fs.rmSync(filePath, { force: true });
+  } catch {
+    // keep current flow
+  }
+}
+
+function resolveProjectAssetPath({ currentPath, uploadedPath, clearRequested }) {
+  if (uploadedPath) {
+    if (currentPath && currentPath !== uploadedPath) {
+      cleanupProjectAsset(currentPath);
+    }
+    return uploadedPath;
+  }
+
+  if (clearRequested) {
+    if (currentPath) {
+      cleanupProjectAsset(currentPath);
+    }
+    return null;
+  }
+
+  return currentPath || null;
 }
 
 async function resolveTopicFromInput({ topicPrompt, language, tone, fallbackTopic }) {

@@ -157,7 +157,7 @@
                 <span class="status-chip">프롬프트 입력</span>
               </div>
 
-              <form class="form-grid studio-form" action="/projects/<%= project.id %>/settings" method="post">
+              <form class="form-grid studio-form" action="/projects/<%= project.id %>/settings" method="post" enctype="multipart/form-data">
                 <label class="wide">주제 프롬프트
                   <textarea
                     name="topicPrompt"
@@ -208,6 +208,24 @@
 
                 <label class="wide">추가 지시
                   <input type="text" name="customPrompt" value="<%= project.settings?.customPrompt || '' %>" />
+                </label>
+
+                <label>스타일 레퍼런스
+                  <input type="file" name="styleReference" accept="image/*" />
+                  <small>현재 파일: <%= optionFiles.styleReferenceName || '없음' %></small>
+                  <span class="inline-check"><input type="checkbox" name="clearStyleReference" value="true" /> 현재 파일 삭제</span>
+                </label>
+
+                <label>BGM 파일
+                  <input type="file" name="bgmFile" accept="audio/*" />
+                  <small>현재 파일: <%= optionFiles.bgmName || '없음' %></small>
+                  <span class="inline-check"><input type="checkbox" name="clearBgmFile" value="true" /> 현재 파일 삭제</span>
+                </label>
+
+                <label class="wide">워터마크
+                  <input type="file" name="watermarkFile" accept="image/*" />
+                  <small>현재 파일: <%= optionFiles.watermarkName || '없음' %></small>
+                  <span class="inline-check"><input type="checkbox" name="clearWatermarkFile" value="true" /> 현재 파일 삭제</span>
                 </label>
 
                 <div class="wide form-actions">
