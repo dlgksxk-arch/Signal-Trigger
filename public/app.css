@@ -742,9 +742,8 @@ small {
 }
 
 .scene-card {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
+  position: relative;
+  padding: 12px;
   border-radius: 20px;
   background: var(--panel-soft);
   border: 1px solid var(--line);
@@ -752,6 +751,7 @@ small {
 
 .scene-thumb-button {
   display: block;
+  position: relative;
   padding: 0;
   min-height: 0;
   border: 0;
@@ -775,14 +775,31 @@ small {
   aspect-ratio: 9 / 16;
 }
 
-.scene-card-body {
-  display: grid;
-  gap: 8px;
+.scene-thumb-placeholder {
+  position: relative;
+  min-height: 220px;
+  border-radius: 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  background: #111214;
 }
 
-.scene-summary {
+.scene-number-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
   font-size: 15px;
-  color: var(--muted);
+  font-weight: 800;
 }
 
 .scene-modal[hidden] {

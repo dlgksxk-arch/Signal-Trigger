@@ -328,22 +328,26 @@ export function createApp() {
 
   app.post("/projects/:id/automation/start", (req, res) => {
     const result = startProjectAutomation(req.params.id);
-    res.redirect(`/projects/${req.params.id}/topic?notice=${result.started ? "automation-started" : "automation-already-running"}`);
+    const returnStep = normalizeStep(req.body.returnStep);
+    res.redirect(`/projects/${req.params.id}/${returnStep}?notice=${result.started ? "automation-started" : "automation-already-running"}`);
   });
 
   app.post("/projects/:id/automation/pause", (req, res) => {
     const result = pauseProjectAutomation(req.params.id);
-    res.redirect(`/projects/${req.params.id}/topic?notice=${result.ok ? "automation-pause-requested" : "automation-not-running"}`);
+    const returnStep = normalizeStep(req.body.returnStep);
+    res.redirect(`/projects/${req.params.id}/${returnStep}?notice=${result.ok ? "automation-pause-requested" : "automation-not-running"}`);
   });
 
   app.post("/projects/:id/automation/resume", (req, res) => {
     const result = resumeProjectAutomation(req.params.id);
-    res.redirect(`/projects/${req.params.id}/topic?notice=${result.resumed ? "automation-resumed" : "automation-not-paused"}`);
+    const returnStep = normalizeStep(req.body.returnStep);
+    res.redirect(`/projects/${req.params.id}/${returnStep}?notice=${result.resumed ? "automation-resumed" : "automation-not-paused"}`);
   });
 
   app.post("/projects/:id/automation/reset", (req, res) => {
     const result = resetProjectAutomation(req.params.id);
-    res.redirect(`/projects/${req.params.id}/topic?notice=${result.scheduled ? "automation-reset-requested" : "automation-reset"}`);
+    const returnStep = normalizeStep(req.body.returnStep);
+    res.redirect(`/projects/${req.params.id}/${returnStep}?notice=${result.scheduled ? "automation-reset-requested" : "automation-reset"}`);
   });
 
   app.post("/projects/:id/scenes/:sceneIndex/regenerate", async (req, res) => {

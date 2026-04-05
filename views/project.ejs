@@ -96,22 +96,26 @@
             <div class="form-actions">
               <% if (generationView.state === 'running' || generationView.state === 'pause_requested') { %>
                 <form action="/projects/<%= project.id %>/automation/pause" method="post">
+                  <input type="hidden" name="returnStep" value="<%= activeStep %>" />
                   <button type="submit">일시중지</button>
                 </form>
               <% } else { %>
                 <form action="/projects/<%= project.id %>/automation/start" method="post">
+                  <input type="hidden" name="returnStep" value="<%= activeStep %>" />
                   <button type="submit">전체 자동 생성</button>
                 </form>
               <% } %>
 
               <% if (generationView.state === 'paused') { %>
                 <form action="/projects/<%= project.id %>/automation/resume" method="post">
+                  <input type="hidden" name="returnStep" value="<%= activeStep %>" />
                   <button class="dark-button" type="submit">재개</button>
                 </form>
               <% } %>
 
               <% if (generationView.state !== 'idle') { %>
-                <form action="/projects/<%= project.id %>/automation/reset" method="post">
+                <form action="/projects/<%= project.id %>/automation/reset" method="post" data-reset-form>
+                  <input type="hidden" name="returnStep" value="<%= activeStep %>" />
                   <button class="dark-button" type="submit">초기화</button>
                 </form>
               <% } %>
@@ -349,24 +353,24 @@
                         type="button"
                         class="scene-thumb-button"
                         data-scene-open
-                        data-scene-title="<%= scene.title %>"
+                        data-scene-title="Scene <%= index + 1 %>"
                         data-scene-image="<%= scene.imagePath.replace(/^.*?storage/, '/storage').replace(/\\/g, '/') %>"
                         data-scene-prompt="<%= scene.imagePrompt %>"
                         data-scene-narration="<%= scene.narration %>"
                         data-scene-action="/projects/<%= project.id %>/scenes/<%= index %>/regenerate"
                       >
+                        <span class="scene-number-badge"><%= index + 1 %></span>
                         <img
                           class="scene-thumb-image"
                           src="<%= scene.imagePath.replace(/^.*?storage/, '/storage').replace(/\\/g, '/') %>"
-                          alt="<%= scene.title %>"
+                          alt="Scene <%= index + 1 %>"
                         />
                       </button>
+                    <% } else { %>
+                      <div class="scene-thumb-placeholder">
+                        <span class="scene-number-badge"><%= index + 1 %></span>
+                      </div>
                     <% } %>
-                    <div class="scene-card-body">
-                      <h3><%= scene.title %></h3>
-                      <p class="scene-summary"><%= scene.narration.length > 160 ? `${scene.narration.slice(0, 160)}...` : scene.narration %></p>
-                      <small><%= scene.imagePrompt %></small>
-                    </div>
                   </article>
                 <% }) %>
               </div>

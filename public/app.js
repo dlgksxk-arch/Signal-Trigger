@@ -10,6 +10,7 @@ if (workflowPage) {
   const sceneModalPrompt = document.querySelector("[data-scene-modal-prompt]");
   const sceneModalNarration = document.querySelector("[data-scene-modal-narration]");
   const sceneModalForm = document.querySelector("[data-scene-modal-form]");
+  const resetForms = Array.from(document.querySelectorAll("[data-reset-form]"));
 
   const setActiveStep = (step) => {
     let selectedLabel = "";
@@ -75,6 +76,15 @@ if (workflowPage) {
       window.location.reload();
     }, 4000);
   }
+
+  resetForms.forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      const confirmed = window.confirm("지금까지 생성된 리서치, 대본, 장면, 렌더 결과를 초기화합니다. 계속하시겠습니까?");
+      if (!confirmed) {
+        event.preventDefault();
+      }
+    });
+  });
 
   if (sceneModal) {
     const sceneOpeners = Array.from(document.querySelectorAll("[data-scene-open]"));
