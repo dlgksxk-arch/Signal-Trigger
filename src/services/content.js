@@ -696,21 +696,45 @@ export async function generateScript({ topic, tone, language, research, customPr
   }
 }
 
-export function planScenes({ script, topic, tone, format, styleProfile, customPrompt }) {
-  const paragraphs = script
-    .split(/\n{2,}/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+export function getTargetSceneCount(durationMinutes) {
+  return Math.max(1, getDurationMinutes(durationMinutes) * 10);
+}
+
+function splitScriptIntoSceneNarrations(script, durationMinutes) {
+  const normalizedScript = String(script ?? "")
+    .replace(/\r\n/g, "\n")
+    .trim();
+
+  if (!normalizedScript) {
+    return [];
+  }
+
+  const targetScenes = getTargetSceneCount(durationMinutes);
+  const words = normalizedScript.split(/\s+/).filter(Boolean);
+
+  if (!words.length) {
+    return [];
+  }
+
+  return Array.from({ length: targetScenes }, (_, index) => {
+    const start = Math.floor((index * words.length) / targetScenes);
+    const end = Math.floor(((index + 1) * words.length) / targetScenes);
+    const safeEnd = end > start ? end : Math.min(words.length, start + 1);
+    return words.slice(start, safeEnd).join(" ").trim();
+  }).filter(Boolean);
+}
+
+export function planScenes({ script, topic, tone, format, styleProfile, customPrompt, durationMinutes }) {
+  const narrations = splitScriptIntoSceneNarrations(script, durationMinutes);
 
   const colors = styleProfile?.palette ?? ["#111827", "#2563eb", "#f8fafc"];
-  const maxScenes = Math.min(20, Math.max(8, paragraphs.length));
   const safeTopic = trimTopicTitle(topic || "", 40) || "Longform topic";
 
-  return paragraphs.slice(0, maxScenes).map((paragraph, index) => ({
+  return narrations.map((paragraph, index) => ({
     index,
     title: `${safeTopic} ${index + 1}`,
     narration: paragraph,
-    durationSec: Math.max(7, Math.round(paragraph.length / 14)),
+    durationSec: 6,
     imagePrompt: buildEditorialScenePrompt({
       topic,
       paragraph,

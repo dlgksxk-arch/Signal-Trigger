@@ -7,6 +7,7 @@ import {
   deriveTopicFromPrompt,
   fetchTrendIdeas,
   generateScript,
+  getTargetSceneCount,
   isInstructionLikeTopic,
   isWeakResolvedTopic,
   planScenes
@@ -465,16 +466,19 @@ export async function runProject(projectId, options = {}) {
       });
     }
 
-    const baseScenes = project.scenes.length
-      ? project.scenes
-      : planScenes({
+    const plannedSceneCount = getTargetSceneCount(project.settings?.durationMinutes || 10);
+    const shouldReplanScenes = !project.scenes.length || project.scenes.length !== plannedSceneCount;
+    const baseScenes = shouldReplanScenes
+      ? planScenes({
           script,
           topic: research.selectedTopic || project.topic,
           tone: project.tone,
           format: project.format,
           styleProfile,
-          customPrompt: project.settings?.customPrompt || ""
-        });
+          customPrompt: project.settings?.customPrompt || "",
+          durationMinutes: project.settings?.durationMinutes || 10
+        })
+      : project.scenes;
 
     const scenes = [...baseScenes];
     const sceneTotal = scenes.length;
