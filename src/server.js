@@ -718,7 +718,7 @@ function buildGenerationView(project) {
     sceneCurrent: generation?.sceneCurrent || 0,
     sceneTotal: generation?.sceneTotal || project.scenes.length || 0,
     error: generation?.error || project.output?.error || null,
-    autoRefresh: resolvedState === "running" || resolvedState === "pause_requested"
+    autoRefresh: resolvedState === "running" || resolvedState === "pause_requested" || resolvedState === "resetting"
   };
 }
 
@@ -866,6 +866,7 @@ function generationStateLabel(state) {
   const labels = {
     idle: "대기",
     running: "진행중",
+    resetting: "초기화 중",
     pause_requested: "일시중지 요청",
     paused: "일시중지",
     completed: "완료",

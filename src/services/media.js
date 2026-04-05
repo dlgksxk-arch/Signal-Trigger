@@ -125,7 +125,7 @@ export async function generateSceneImage({ outputPath, scene, styleProfile, form
   return outputPath;
 }
 
-export async function generateNarration({ script, language, outputPath, subtitlesPath }) {
+export async function generateNarration({ script, language, outputPath, subtitlesPath, shouldAbort }) {
   ensureDir(path.dirname(outputPath));
   const textPath = path.join(path.dirname(outputPath), "narration.txt");
   fs.writeFileSync(textPath, script, "utf8");
@@ -150,7 +150,7 @@ export async function generateNarration({ script, language, outputPath, subtitle
     args.push("--write-subtitles", subtitlesPath);
   }
 
-  await runCommand("py", args);
+  await runCommand("py", args, { shouldAbort });
   return outputPath;
 }
 
@@ -393,7 +393,7 @@ function getAnimatedClipMotion(index) {
   return motions[index % motions.length];
 }
 
-async function buildAnimatedSceneClip({ imagePath, durationSec, outputPath, format, index }) {
+async function buildAnimatedSceneClip({ imagePath, durationSec, outputPath, format, index, shouldAbort }) {
   ensureDir(path.dirname(outputPath));
   const width = format === "landscape" ? 1920 : 1080;
   const height = format === "landscape" ? 1080 : 1920;
@@ -417,7 +417,7 @@ async function buildAnimatedSceneClip({ imagePath, durationSec, outputPath, form
     "-r", String(fps),
     "-pix_fmt", "yuv420p",
     outputPath
-  ]);
+  ], { shouldAbort });
 
   return outputPath;
 }
@@ -430,7 +430,8 @@ export async function renderVideo({
   narrationPath,
   bgmPath,
   watermarkPath,
-  format
+  format,
+  shouldAbort
 }) {
   ensureDir(path.dirname(outputPath));
   const sceneTimeline = buildSceneTimeline(scenes);
@@ -446,7 +447,8 @@ export async function renderVideo({
       durationSec: durations[index],
       outputPath: clipPath,
       format,
-      index
+      index,
+      shouldAbort
     });
     clipPaths.push(clipPath);
   }
@@ -529,25 +531,49 @@ export async function renderVideo({
   }
 
   args.push("-shortest", "-r", "30", "-pix_fmt", "yuv420p", "-movflags", "+faststart", outputPath);
-  await runFfmpeg(args);
+  await runFfmpeg(args, { shouldAbort });
   return outputPath;
 }
 
-function runFfmpeg(args) {
-  return runCommand(ffmpegPath || "ffmpeg", args);
+function runFfmpeg(args, options = {}) {
+  return runCommand(ffmpegPath || "ffmpeg", args, options);
 }
 
-function runCommand(command, args) {
+function runCommand(command, args, options = {}) {
   return new Promise((resolve, reject) => {
-    const process = spawn(command, args, { stdio: "inherit" });
+    const child = spawn(command, args, { stdio: "inherit" });
+    const shouldAbort = typeof options.shouldAbort === "function" ? options.shouldAbort : null;
+    const abortTimer = shouldAbort
+      ? setInterval(() => {
+          if (shouldAbort()) {
+            child.kill();
+          }
+        }, 200)
+      : null;
 
-    process.on("close", (code) => {
+    child.on("close", (code) => {
+      if (abortTimer) {
+        clearInterval(abortTimer);
+      }
+
       if (code === 0) {
         resolve();
         return;
       }
 
+      if (shouldAbort?.()) {
+        reject(new Error("generation-reset-requested"));
+        return;
+      }
+
       reject(new Error(`ffmpeg exited with code ${code}`));
+    });
+
+    child.on("error", (error) => {
+      if (abortTimer) {
+        clearInterval(abortTimer);
+      }
+      reject(error);
     });
   });
 }

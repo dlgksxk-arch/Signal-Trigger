@@ -369,6 +369,42 @@ export function resetProjectAutomation(projectId) {
     controller.resumeResolver();
   }
 
+  const project = getProject(projectId);
+  if (project) {
+    updateProject(projectId, {
+      status: "draft",
+      updated_at: nowIso(),
+      research_json: null,
+      style_json: null,
+      script_text: null,
+      scenes_json: JSON.stringify([]),
+      output_json: JSON.stringify({
+        uploadStatus: getUploadStatusForProject(project),
+        generation: {
+          ...createDefaultGenerationState({ ...project, scenes: [] }),
+          state: "resetting",
+          currentStep: "topic",
+          currentLabel: "초기화",
+          detail: "초기화 처리 중입니다."
+        }
+      })
+    });
+  }
+
+  persistGeneration(projectId, {
+    state: "resetting",
+    currentStep: "topic",
+    currentLabel: "초기화",
+    percent: 0,
+    detail: "초기화 처리 중입니다.",
+    sceneCurrent: 0,
+    sceneTotal: 0,
+    error: null,
+    steps: createDefaultGenerationSteps()
+  });
+
+  return { scheduled: true };
+
   persistGeneration(projectId, {
     state: "running",
     detail: "초기화 처리 중입니다."
@@ -567,8 +603,12 @@ export async function runProject(projectId, options = {}) {
       script,
       language: project.language,
       outputPath: narrationPath,
-      subtitlesPath
+      subtitlesPath,
+      shouldAbort: () => Boolean(controller?.resetRequested)
     });
+    if (controller?.resetRequested) {
+      throw new GenerationResetError();
+    }
 
     generateSrt({ scenes, outputPath: subtitlesPath });
 
@@ -580,8 +620,12 @@ export async function runProject(projectId, options = {}) {
       narrationPath,
       bgmPath: project.bgm_path,
       watermarkPath: project.watermark_path,
-      format: project.format
+      format: project.format,
+      shouldAbort: () => Boolean(controller?.resetRequested)
     });
+    if (controller?.resetRequested) {
+      throw new GenerationResetError();
+    }
 
     await buildThumbnail({
       imagePath: scenes[0].imagePath,
@@ -591,6 +635,9 @@ export async function runProject(projectId, options = {}) {
       scenes,
       script
     });
+    if (controller?.resetRequested) {
+      throw new GenerationResetError();
+    }
 
     const latestOutput = getProject(projectId)?.output ?? {};
     const output = {
@@ -641,7 +688,7 @@ export async function runProject(projectId, options = {}) {
 
     return getProject(projectId);
   } catch (error) {
-    if (error instanceof GenerationResetError) {
+    if (error instanceof GenerationResetError || error?.message === "generation-reset-requested") {
       performProjectReset(projectId);
       return getProject(projectId);
     }
