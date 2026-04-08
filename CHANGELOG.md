@@ -1,5 +1,10 @@
 ﻿# 蹂寃?湲곕줉
 
+## V1.0.37
+- fetchTrendIdeas() now keeps a separate researchInput block and chooses the final angle by explicit scoring instead of falling through to the first discovered candidate.
+- rejectedAngles now include rejection reasons, and server/pipeline reads selectedAngle or researchInput before any legacy selectedTopic fallback.
+- Removed the dead scout topic path so the active topic pipeline is only raw subject -> discovered angles -> rejected angles -> selected angle -> research.
+
 ## V1.0.36
 - hydrateProjectTopic() and hydrateRuntimeProject() no longer derive or finalize a topic; they only preserve rawSubject metadata.
 - Research, script, scene, render, upload payload, and agent context now use selectedAngle separately from raw subject.

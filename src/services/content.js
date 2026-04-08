@@ -1,4 +1,4 @@
-﻿import fs from "node:fs";
+import fs from "node:fs";
 import googleTrends from "google-trends-api";
 import sharp from "sharp";
 
@@ -501,146 +501,6 @@ function buildResearchSummary(topic, ideas, language) {
     : `"${topic}" 湲곗??쇰줈 由ъ꽌移섎? ??ν뻽?듬땲??`;
 }
 
-function buildResearchScoutPrompt({ topicPrompt, topic, language, trendIdeas }) {
-  const outputLanguage = getOutputLanguageName(language);
-
-  return [
-    'You are a story scout for a YouTube channel called "Signal Trigger."',
-    "",
-    'When the input is "fun story", your job is to find a list of real-world topic ideas that are genuinely interesting, easy to get hooked on, and strong enough to turn into highly watchable longform videos.',
-    "",
-    "This is NOT about picking the most important topic.",
-    "This is NOT about picking the most technical topic.",
-    "This is NOT about sounding smart.",
-    "",
-    "Your job is to find stories that make people instantly curious.",
-    "",
-    "The topics can come from:",
-    "- current news",
-    "- history",
-    "- war",
-    "- politics",
-    "- diplomacy",
-    "- scandals",
-    "- betrayals",
-    "- strange alliances",
-    "- revenge stories",
-    "- failed leaders",
-    "- shocking decisions",
-    "- old grudges",
-    "- disasters caused by one bad move",
-    "- real-life stories that sound crazier than fiction",
-    "",
-    "What makes a good topic:",
-    "1. It should instantly make people think:",
-    '   - "Wait, what happened?"',
-    '   - "No way this is real."',
-    '   - "How did this turn out like that?"',
-    '   - "That sounds insane."',
-    '   - "I want to hear this story."',
-    "2. It should be easy to explain to ordinary viewers.",
-    "3. It should have strong drama, conflict, irony, or emotional tension.",
-    "4. It should have clear storytelling potential.",
-    "5. It should NOT feel like homework.",
-    "6. It should NOT be full of jargon.",
-    "7. It should NOT sound dry, academic, or overly serious.",
-    "8. It should feel like a real story people would actually click on.",
-    "",
-    "Selection preferences:",
-    "- wild true stories",
-    "- legendary political beefs",
-    "- revenge arcs",
-    "- strange historical turning points",
-    "- secret deals",
-    "- massive mistakes",
-    "- betrayals",
-    "- humiliations",
-    "- power grabs",
-    "- unintended consequences",
-    "- real events with cinematic energy",
-    "",
-    'If the user says "fun story", generate a list of the most promising topic ideas.',
-    "",
-    "Output format:",
-    "For each topic, provide:",
-    "1. Topic Idea",
-    "2. Why It Grabs Attention",
-    "3. Why It Would Make a Great Video",
-    "4. Suggested Hook Angle",
-    "",
-    "Generate 15 topic ideas.",
-    "",
-    `Write in clear, vivid, natural ${outputLanguage}.`,
-    "Do not sound academic.",
-    "Do not sound like a textbook.",
-    "Do not sound like a policy analyst.",
-    "Make the topics feel juicy, clickable, easy to understand, and highly watchable.",
-    "",
-    "Return valid JSON only in this shape:",
-    '{"topics":[{"topicIdea":"","whyItGrabsAttention":"","whyItWouldMakeAGreatVideo":"","suggestedHookAngle":""}]}',
-    "",
-    "Input:",
-    `Project language: ${outputLanguage}`,
-    `Creator input: ${normalizeText(topicPrompt) || "fun story"}`,
-    `Current resolved topic: ${normalizeText(topic) || "none"}`,
-    `Trend signals: ${trendIdeas.join(" | ") || "none"}`
-  ].join("\n");
-}
-
-function parseScoutTopics(raw) {
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed?.topics)) {
-      return parsed.topics
-        .map((item) => ({
-          topicIdea: normalizeText(item?.topicIdea),
-          whyItGrabsAttention: normalizeText(item?.whyItGrabsAttention),
-          whyItWouldMakeAGreatVideo: normalizeText(item?.whyItWouldMakeAGreatVideo),
-          suggestedHookAngle: normalizeText(item?.suggestedHookAngle)
-        }))
-        .filter((item) => item.topicIdea);
-    }
-  } catch {
-    // fallback below
-  }
-
-  return [];
-}
-
-function buildScoutSummary(topicCards, language) {
-  const blocks = topicCards.map((item, index) => [
-    `${index + 1}. ${item.topicIdea}`,
-    `- Why It Grabs Attention: ${item.whyItGrabsAttention}`,
-    `- Why It Would Make a Great Video: ${item.whyItWouldMakeAGreatVideo}`,
-    `- Suggested Hook Angle: ${item.suggestedHookAngle}`
-  ].join("\n"));
-
-  if (blocks.length) {
-    return blocks.join("\n\n");
-  }
-
-  return language === "en" ? "No scout result was generated." : "?ㅽ넗由??ㅼ뭅?고듃 寃곌낵媛 ?놁뒿?덈떎.";
-}
-
-function buildFallbackScoutTopics(resolvedTopic, trendIdeas, language) {
-  return trendIdeas.slice(0, 15).map((idea) => {
-    if (language === "en") {
-      return {
-        topicIdea: idea,
-        whyItGrabsAttention: `It sounds like a real story with conflict, surprise, and immediate curiosity around ${idea}.`,
-        whyItWouldMakeAGreatVideo: `It is easy to follow, naturally dramatic, and can be expanded into a strong longform narrative tied to ${resolvedTopic}.`,
-        suggestedHookAngle: `Start with the one detail that makes ${idea} sound stranger, riskier, or more explosive than people expect.`
-      };
-    }
-
-    return {
-      topicIdea: idea,
-      whyItGrabsAttention: `${idea} ?먯껜??媛덈벑怨?諛섏쟾??蹂댁뿬??諛붾줈 沅곴툑利앹쓣 留뚮뱾 ???덉뒿?덈떎.`,
-      whyItWouldMakeAGreatVideo: `${resolvedTopic}? ?곌껐??湲멸쾶 ?湲??쎄퀬, ?쇰컲 ?쒖껌?먮룄 ?댄빐?섍린 醫뗭? ?댁빞湲?援ъ“瑜?留뚮뱾 ???덉뒿?덈떎.`,
-      suggestedHookAngle: `${idea}媛 ???앷컖蹂대떎 ???댁긽?섍퀬 ?꾪뿕???댁빞湲곗씤吏 ??以꾨줈 癒쇱? ?섏?硫?醫뗭뒿?덈떎.`
-    };
-  });
-}
 
 function buildAngleDiscoveryPrompt({ topicPrompt, subject, language, trendIdeas }) {
   const outputLanguage = getOutputLanguageName(language);
@@ -735,9 +595,65 @@ function filterAngleCandidates(angles) {
     .sort((left, right) => angleSelectionScore(right) - angleSelectionScore(left));
 }
 
+function describeAngleRejection(angle) {
+  const reasons = [];
+
+  if (angle.storyPotentialScore < 6) {
+    reasons.push("low story potential");
+  }
+
+  if (angle.curiosityScore < 6) {
+    reasons.push("weak curiosity");
+  }
+
+  if (angle.clarityScore < 5) {
+    reasons.push("too unclear");
+  }
+
+  if (angle.predictabilityScore > 6) {
+    reasons.push("too obvious");
+  }
+
+  return reasons.length ? reasons.join(", ") : "filtered out during obvious-angle rejection";
+}
+
 function buildRejectedAngles(discoveredAngles, filteredAngles) {
   const filteredTitles = new Set(filteredAngles.map((item) => item.angleTitle));
-  return discoveredAngles.filter((item) => !filteredTitles.has(item.angleTitle));
+  return discoveredAngles
+    .filter((item) => !filteredTitles.has(item.angleTitle))
+    .map((item) => ({
+      ...item,
+      rejectionReason: describeAngleRejection(item)
+    }));
+}
+
+function pickBestAngleCandidate(angles) {
+  if (!angles.length) {
+    return null;
+  }
+
+  return angles.reduce((best, current) => {
+    if (!best) {
+      return current;
+    }
+
+    const currentScore = angleSelectionScore(current);
+    const bestScore = angleSelectionScore(best);
+
+    if (currentScore !== bestScore) {
+      return currentScore > bestScore ? current : best;
+    }
+
+    if (current.predictabilityScore !== best.predictabilityScore) {
+      return current.predictabilityScore < best.predictabilityScore ? current : best;
+    }
+
+    if (current.curiosityScore !== best.curiosityScore) {
+      return current.curiosityScore > best.curiosityScore ? current : best;
+    }
+
+    return best;
+  }, null);
 }
 
 function buildAngleSelectionPrompt({ subject, filteredAngles, language }) {
@@ -803,9 +719,10 @@ async function selectFinalAngle({ subject, filteredAngles, language, apiKey, mod
     }
   }
 
+  const bestAngle = pickBestAngleCandidate(filteredAngles);
   return {
-    ...filteredAngles[0],
-    selectionReason: "Highest weighted score after hidden-angle filtering."
+    ...bestAngle,
+    selectionReason: "Selected by weighted angle scoring after hidden-angle filtering."
   };
 }
 
@@ -963,6 +880,7 @@ function buildFallbackAngleResearch(subject, selectedAngle, language) {
 
 export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
   const subject = trimTopicTitle(topic || "", 72)
+    || buildBroadSubjectFromPrompt(topicPrompt, language)
     || await deriveTopicFromPrompt({ topicPrompt, language, fallbackTopic: topic });
   const angleApiKey = process.env.OPENAI_API_KEY;
   const angleModel = process.env.OPENAI_MODEL || "gpt-4.1-mini";
@@ -1002,6 +920,7 @@ export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
 
     const filteredAngles = filterAngleCandidates(discoveredAngles);
     const rejectedAngles = buildRejectedAngles(discoveredAngles, filteredAngles);
+    const bestAngleCandidate = pickBestAngleCandidate(filteredAngles) || pickBestAngleCandidate(discoveredAngles);
     const selectedAngle = await selectFinalAngle({
       subject,
       filteredAngles,
@@ -1009,7 +928,7 @@ export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
       apiKey: angleApiKey,
       model: angleModel,
       baseUrl: angleBaseUrl
-    }) || filteredAngles[0] || discoveredAngles[0] || {
+    }) || bestAngleCandidate || {
       angleTitle: subject,
       whyInteresting: "",
       humanDrama: "",
@@ -1059,6 +978,11 @@ export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
       angleDiscovery: discoveredAngles,
       rejectedAngles,
       filteredAngles,
+      researchInput: {
+        subject,
+        selectedAngleTitle: selectedAngle.angleTitle || subject,
+        selectionReason: selectedAngle.selectionReason || ""
+      },
       ideas,
       summary: [
         buildAngleDiscoverySummary(subject, selectedAngle, filteredAngles, language),
@@ -1071,6 +995,7 @@ export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
     const fallbackAngles = buildFallbackAngleCandidates(subject, [subject], language);
     const filteredAngles = filterAngleCandidates(fallbackAngles);
     const rejectedAngles = buildRejectedAngles(fallbackAngles, filteredAngles);
+    const bestAngleCandidate = pickBestAngleCandidate(filteredAngles) || pickBestAngleCandidate(fallbackAngles);
     const selectedAngle = await selectFinalAngle({
       subject,
       filteredAngles,
@@ -1078,7 +1003,7 @@ export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
       apiKey: angleApiKey,
       model: angleModel,
       baseUrl: angleBaseUrl
-    }) || filteredAngles[0] || fallbackAngles[0];
+    }) || bestAngleCandidate;
     const researchBrief = buildFallbackAngleResearch(subject, selectedAngle, language);
 
     return {
@@ -1090,6 +1015,11 @@ export async function fetchTrendIdeas({ topicPrompt, topic, language }) {
       angleDiscovery: fallbackAngles,
       rejectedAngles,
       filteredAngles,
+      researchInput: {
+        subject,
+        selectedAngleTitle: selectedAngle.angleTitle || subject,
+        selectionReason: selectedAngle.selectionReason || ""
+      },
       ideas: researchBrief.keyPastEvents,
       summary: [
         buildAngleDiscoverySummary(subject, selectedAngle, filteredAngles, language),

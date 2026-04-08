@@ -37,6 +37,7 @@ function getRawSubject(project) {
 function getResearchTopic(project, research = project?.research) {
   return (
     research?.selectedAngle?.angleTitle?.trim()
+    || research?.researchInput?.selectedAngleTitle?.trim()
     || research?.selectedTopic?.trim()
     || getRawSubject(project)
     || "주제 미정"

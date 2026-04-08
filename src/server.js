@@ -303,6 +303,11 @@ export function createApp() {
       subject: getRawSubject(project),
       selectedTopic: getResearchTopic(project),
       selectedAngle: project.research?.selectedAngle || null,
+      researchInput: project.research?.researchInput || {
+        subject: getRawSubject(project),
+        selectedAngleTitle: getResearchTopic(project),
+        selectionReason: ""
+      },
       discoveredAngles: project.research?.discoveredAngles || project.research?.angleDiscovery || [],
       angleDiscovery: project.research?.angleDiscovery || [],
       rejectedAngles: project.research?.rejectedAngles || [],
@@ -989,6 +994,7 @@ function getRawSubject(project) {
 function getResearchTopic(project, research = project?.research) {
   return (
     research?.selectedAngle?.angleTitle?.trim()
+    || research?.researchInput?.selectedAngleTitle?.trim()
     || research?.selectedTopic?.trim()
     || getRawSubject(project)
     || "주제 미정"
@@ -1035,6 +1041,7 @@ function buildAgentContext(project) {
     id: project.id,
     topic: getResearchTopic(project),
     rawSubject: getRawSubject(project),
+    researchInput: project.research?.researchInput || null,
     topicPrompt: project.settings?.topicPrompt || "",
     customPrompt: project.settings?.customPrompt || "",
     language: project.language,
